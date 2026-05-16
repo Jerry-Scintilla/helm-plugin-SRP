@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8" />
+<title>舰船补损 SRP</title>
+<script src="/plugin-sdk/helm-sdk.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',sans-serif;background:#1a1a18;color:#c0bfb8;min-height:100vh}
+.app{display:flex;flex-direction:column;height:100vh}
+.topbar{display:flex;align-items:center;gap:0;background:#242420;border-bottom:1px solid #35342f;padding:0 8px;flex-shrink:0}
+.tab-btn{padding:10px 18px;border:none;background:none;color:#7a796f;cursor:pointer;font-size:.9rem;border-bottom:2px solid transparent;transition:color .15s,border-color .15s}
+.tab-btn:hover{color:#c0bfb8}
+.tab-btn.active{color:#f0ece0;border-bottom-color:#b8934a}
+.content{flex:1;overflow-y:auto;padding:20px 24px}
+h2{color:#f0ece0;font-size:1.25rem;margin-bottom:16px}
+h3{color:#d0cfca;font-size:1rem;margin-bottom:12px}
+
+/* 表格 */
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+th,td{padding:8px 10px;border-bottom:1px solid #2e2d29;text-align:left}
+th{color:#7a796f;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+tr:hover td{background:#222220}
+
+/* 状态徽章 */
+.badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:.78rem;font-weight:600}
+.badge-pending {background:#3a2e0e;color:#c8a84a}
+.badge-approved{background:#0d2e0d;color:#4caf50}
+.badge-rejected{background:#2e0d0d;color:#e06060}
+.badge-paid    {background:#0d1f2e;color:#4a9fd0}
+
+/* 按钮 */
+.btn{padding:6px 14px;border:none;border-radius:4px;cursor:pointer;font-size:.88rem;transition:opacity .15s}
+.btn:hover{opacity:.85}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn-primary  {background:#b8934a;color:#fff}
+.btn-success  {background:#2d6e2d;color:#fff}
+.btn-danger   {background:#6e2d2d;color:#fff}
+.btn-secondary{background:#3a3934;color:#c0bfb8}
+.btn-sm{padding:4px 10px;font-size:.8rem}
+
+/* 表单 */
+.form-group{margin-bottom:14px}
+.form-group label{display:block;color:#7a796f;font-size:.82rem;margin-bottom:4px}
+.form-group input,.form-group select,.form-group textarea{
+  width:100%;padding:8px 10px;background:#2a2a28;border:1px solid #3e3d38;
+  border-radius:4px;color:#c0bfb8;font-size:.9rem
+}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{
+  outline:none;border-color:#b8934a
+}
+.form-group textarea{resize:vertical;min-height:72px}
+
+/* 预览卡片 */
+.preview-card{background:#242420;border:1px solid #35342f;border-radius:6px;padding:16px;margin-bottom:16px}
+.preview-card .amount{font-size:1.4rem;color:#b8934a;font-weight:700}
+.preview-card .meta{font-size:.82rem;color:#7a796f;margin-top:4px}
+.ineligible{color:#e06060}
+
+/* 空状态 / 加载 */
+.empty{text-align:center;padding:48px 0;color:#5a5950}
+.loading{color:#5a5950;padding:16px 0}
+
+/* Dialog */
+dialog{background:#242420;border:1px solid #35342f;border-radius:8px;color:#c0bfb8;padding:0;min-width:340px;max-width:480px}
+dialog::backdrop{background:rgba(0,0,0,.6)}
+.dialog-header{padding:16px 20px;border-bottom:1px solid #35342f;font-size:1rem;color:#f0ece0}
+.dialog-body{padding:16px 20px}
+.dialog-footer{padding:12px 20px;border-top:1px solid #35342f;display:flex;justify-content:flex-end;gap:8px}
+
+/* 配置表格 */
+.config-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:600px){.config-grid{grid-template-columns:1fr}}
+
+/* 行内操作 */
+.action-row{display:flex;gap:6px;flex-wrap:wrap}
+
+/* ISK 格式 */
+.isk{font-variant-numeric:tabular-nums}
+
+/* 舰队快速提交 */
+.fleet-header{background:#242420;border:1px solid #35342f;border-radius:6px;padding:14px 18px;margin-bottom:16px}
+.fleet-header h3{margin-bottom:4px;color:#f0ece0}
+.fleet-header .window{font-size:.82rem;color:#7a796f}
+.kill-row.selected td{background:#1e2a18}
+.checkbox-col{width:36px}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="topbar" id="tabs"></div>
+  <div class="content" id="content">
+    <p class="loading">正在初始化…</p>
+  </div>
+</div>
+
+<!-- 拒绝理由 Dialog -->
+<dialog id="rejectDialog">
+  <div class="dialog-header">拒绝补损申请</div>
+  <div class="dialog-body">
+    <div class="form-group">
+      <label>拒绝理由（可选）</label>
+      <textarea id="rejectNotes" placeholder="请输入拒绝理由…"></textarea>
+    </div>
+  </div>
+  <div class="dialog-footer">
+    <button class="btn btn-secondary" onclick="document.getElementById('rejectDialog').close()">取消</button>
+    <button class="btn btn-danger" id="rejectConfirmBtn">确认拒绝</button>
+  </div>
+</dialog>
+
+<script>
+// ── 全局状态 ──────────────────────────────────────────────────────────────────
+var API_BASE = '';
+var USER_PERMS = [];
+var IS_OFFICER = false;
+var IS_ADMIN = false;
+var CURRENT_TAB = '';
+var FLEET_ACTION_ID = null;
+
+// 从 URL 参数读取 fleet_action
+var urlParams = new URLSearchParams(window.location.search);
+FLEET_ACTION_ID = urlParams.get('fleet_action') ? parseInt(urlParams.get('fleet_action')) : null;
+
+// ── 工具函数 ──────────────────────────────────────────────────────────────────
+function isk(v) {
+  return Number(v).toLocaleString('zh-CN', {maximumFractionDigits: 0}) + ' ISK';
+}
+function fmtDate(s) {
+  if (!s) return '—';
+  return new Date(s).toLocaleString('zh-CN', {hour12: false});
+}
+function badgeHtml(status) {
+  var map = {pending:'⏳ 待审核', approved:'✅ 已批准', rejected:'❌ 已拒绝', paid:'💰 已付款'};
+  return '<span class="badge badge-' + status + '">' + (map[status] || status) + '</span>';
+}
+function hasPerm(p) {
+  return IS_ADMIN || USER_PERMS.indexOf(p) !== -1;
+}
+
+async function apiFetch(path, opts) {
+  opts = opts || {};
+  opts.headers = Object.assign({'Authorization': 'Bearer ' + HelmSDK.getToken(), 'Content-Type': 'application/json'}, opts.headers || {});
+  var resp = await fetch(API_BASE + '/api/v1/plugins/srp' + path, opts);
+  if (!resp.ok) {
+    var err;
+    try { err = (await resp.json()).detail; } catch(e) { err = resp.statusText; }
+    throw new Error(err || '请求失败 ' + resp.status);
+  }
+  if (resp.status === 204) return null;
+  return resp.json();
+}
+
+// ── Tab 渲染 ──────────────────────────────────────────────────────────────────
+function renderTabs() {
+  var tabs = [];
+  if (FLEET_ACTION_ID) tabs.push({id:'fleet', label:'⚡ 舰队快速提交'});
+  tabs.push({id:'mine', label:'📋 我的申请'});
+  if (IS_OFFICER) tabs.push({id:'review', label:'🔍 待审核'});
+  if (IS_ADMIN) tabs.push({id:'config', label:'⚙️ 配置'});
+
+  if (!CURRENT_TAB) {
+    CURRENT_TAB = FLEET_ACTION_ID ? 'fleet' : (IS_OFFICER ? 'review' : 'mine');
+  }
+
+  var html = '';
+  tabs.forEach(function(t) {
+    html += '<button class="tab-btn' + (CURRENT_TAB === t.id ? ' active' : '') +
+            '" onclick="switchTab(\'' + t.id + '\')">' + t.label + '</button>';
+  });
+  document.getElementById('tabs').innerHTML = html;
+}
+
+function switchTab(id) {
+  CURRENT_TAB = id;
+  renderTabs();
+  renderContent();
+}
+
+function renderContent() {
+  if (CURRENT_TAB === 'mine') renderMine();
+  else if (CURRENT_TAB === 'review') renderReview();
+  else if (CURRENT_TAB === 'config') renderConfig();
+  else if (CURRENT_TAB === 'fleet') renderFleet();
+}
+
+// ── 我的申请 ──────────────────────────────────────────────────────────────────
+var showSubmitForm = false;
+var previewData = null;
+
+async function renderMine() {
+  document.getElementById('content').innerHTML = '<p class="loading">加载中…</p>';
+  try {
+    var data = await apiFetch('/requests?page_size=50');
+    var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">' +
+               '<h2>我的补损申请</h2>' +
+               (hasPerm('srp.submit') ? '<button class="btn btn-primary" onclick="toggleSubmitForm()">＋ 提交新申请</button>' : '') +
+               '</div>';
+
+    if (showSubmitForm) html += submitFormHtml();
+
+    if (data.total === 0 && !showSubmitForm) {
+      html += '<p class="empty">暂无申请记录</p>';
+    } else if (data.total > 0) {
+      html += requestTableHtml(data.items, false);
+    }
+    document.getElementById('content').innerHTML = html;
+  } catch(e) {
+    document.getElementById('content').innerHTML = '<p class="empty" style="color:#e06060">加载失败：' + e.message + '</p>';
+  }
+}
+
+function submitFormHtml() {
+  var html = '<div class="preview-card" style="margin-bottom:16px">' +
+    '<h3>提交补损申请</h3>' +
+    '<div class="form-group"><label>zkillboard 链接</label>' +
+    '<input type="text" id="zkbUrl" placeholder="https://zkillboard.com/kill/12345/" /></div>' +
+    '<div class="form-group"><label>使用角色</label>' +
+    '<select id="charSelect"><option value="">加载角色列表…</option></select></div>' +
+    '<div class="form-group"><label>备注（可选）</label>' +
+    '<textarea id="submitNotes" placeholder="如：在 X 舰队活动期间损失"></textarea></div>' +
+    '<button class="btn btn-secondary btn-sm" onclick="previewKm()" style="margin-right:8px">预览补损金额</button>' +
+    '</div>';
+
+  if (previewData) {
+    html += '<div class="preview-card">' +
+      '<div style="font-size:.9rem;color:#7a796f;margin-bottom:8px">' + previewData.ship_name + ' · killmail #' + previewData.killmail_id + '</div>' +
+      '<div class="amount">' + isk(previewData.calculated_value) + '</div>' +
+      '<div class="meta">原始损失：' + isk(previewData.loss_value_raw) +
+      ' · 价格来源：' + previewData.price_source +
+      ' · 系数：' + previewData.coefficient + '</div>' +
+      (previewData.eligible
+        ? '<div style="margin-top:12px"><button class="btn btn-primary" onclick="doSubmit()">确认提交</button></div>'
+        : '<div class="ineligible" style="margin-top:8px">⚠ 不符合补损资格：' + previewData.ineligible_reason + '</div>') +
+      '</div>';
+  }
+  return html;
+}
+
+function toggleSubmitForm() {
+  showSubmitForm = !showSubmitForm;
+  previewData = null;
+  renderMine();
+  // 加载角色列表
+  if (showSubmitForm) loadCharacters();
+}
+
+async function loadCharacters() {
+  try {
+    var chars = await apiFetch('/../fleet-action/characters');  // 复用 fleet-action 的角色端点
+    var sel = document.getElementById('charSelect');
+    if (!sel) return;
+    sel.innerHTML = chars.map(function(c) {
+      return '<option value="' + c.value + '">' + c.label + '</option>';
+    }).join('');
+  } catch(e) {
+    // 如果 fleet-action 不可用，尝试直接获取
+    try {
+      var chars2 = await apiFetch('/../characters');
+      var sel2 = document.getElementById('charSelect');
+      if (!sel2) return;
+      sel2.innerHTML = chars2.map(function(c) {
+        return '<option value="' + c.value + '">' + c.label + '</option>';
+      }).join('');
+    } catch(e2) {
+      // 留空，用户手动输入
+    }
+  }
+}
+
+async function previewKm() {
+  var url = (document.getElementById('zkbUrl') || {}).value;
+  if (!url) { alert_inline('请填写 zkillboard 链接'); return; }
+  try {
+    previewData = await apiFetch('/killmail/preview?url=' + encodeURIComponent(url));
+    renderMine();
+  } catch(e) {
+    alert_inline('预览失败：' + e.message);
+  }
+}
+
+async function doSubmit() {
+  if (!previewData) return;
+  var charId = parseInt((document.getElementById('charSelect') || {}).value);
+  var notes = (document.getElementById('submitNotes') || {}).value || null;
+  if (!charId) { alert_inline('请选择角色'); return; }
+  try {
+    await apiFetch('/requests', {
+      method: 'POST',
+      body: JSON.stringify({zkb_url: previewData.zkb_url || document.getElementById('zkbUrl').value, character_id: charId, notes: notes})
+    });
+    showSubmitForm = false; previewData = null;
+    renderMine();
+  } catch(e) {
+    alert_inline('提交失败：' + e.message);
+  }
+}
+
+function alert_inline(msg) {
+  // 使用 <dialog> 显示提示，而非 alert()
+  var d = document.createElement('dialog');
+  d.innerHTML = '<div class="dialog-header">提示</div><div class="dialog-body">' + msg +
+    '</div><div class="dialog-footer"><button class="btn btn-primary" onclick="this.closest(\'dialog\').close();this.closest(\'dialog\').remove()">确定</button></div>';
+  document.body.appendChild(d);
+  d.showModal();
+}
+
+function requestTableHtml(items, showCharCol) {
+  var html = '<table><thead><tr>' +
+    (showCharCol ? '<th>角色</th>' : '') +
+    '<th>舰船</th><th>损失</th><th>补损金额</th><th>状态</th><th>提交时间</th>';
+  if (IS_OFFICER) html += '<th>操作</th>';
+  html += '</tr></thead><tbody>';
+
+  items.forEach(function(r) {
+    html += '<tr>' +
+      (showCharCol ? '<td>' + r.character_name + '</td>' : '') +
+      '<td>' + r.ship_name + '</td>' +
+      '<td class="isk">' + isk(r.loss_value_raw) + '</td>' +
+      '<td class="isk"><strong>' + isk(r.calculated_value) + '</strong></td>' +
+      '<td>' + badgeHtml(r.status) + '</td>' +
+      '<td>' + fmtDate(r.created_at) + '</td>';
+    if (IS_OFFICER) {
+      html += '<td><div class="action-row">';
+      if (r.status === 'pending') {
+        html += '<button class="btn btn-success btn-sm" onclick="approveReq(' + r.id + ')">批准</button>' +
+                '<button class="btn btn-danger btn-sm" onclick="openRejectDialog(' + r.id + ')">拒绝</button>';
+      } else if (r.status === 'approved') {
+        html += '<button class="btn btn-primary btn-sm" onclick="markPaid(' + r.id + ')">标记已付款</button>';
+      }
+      html += '</div></td>';
+    }
+    html += '</tr>';
+  });
+  html += '</tbody></table>';
+  return html;
+}
+
+// ── 待审核（补损官视图）────────────────────────────────────────────────────────
+async function renderReview() {
+  document.getElementById('content').innerHTML = '<p class="loading">加载中…</p>';
+  try {
+    var data = await apiFetch('/requests?status=pending&page_size=100');
+    var html = '<h2>待审核申请 <span style="font-size:.9rem;color:#7a796f">共 ' + data.total + ' 条</span></h2>';
+    if (data.total === 0) {
+      html += '<p class="empty">没有待审核的申请 🎉</p>';
+    } else {
+      html += requestTableHtml(data.items, true);
+    }
+    document.getElementById('content').innerHTML = html;
+  } catch(e) {
+    document.getElementById('content').innerHTML = '<p class="empty" style="color:#e06060">加载失败：' + e.message + '</p>';
+  }
+}
+
+async function approveReq(id) {
+  try {
+    await apiFetch('/requests/' + id + '/approve', {method:'POST', body:'{}'});
+    renderContent();
+  } catch(e) { alert_inline('操作失败：' + e.message); }
+}
+
+var pendingRejectId = null;
+function openRejectDialog(id) {
+  pendingRejectId = id;
+  document.getElementById('rejectNotes').value = '';
+  document.getElementById('rejectDialog').showModal();
+  document.getElementById('rejectConfirmBtn').onclick = doReject;
+}
+
+async function doReject() {
+  if (!pendingRejectId) return;
+  var notes = document.getElementById('rejectNotes').value || null;
+  try {
+    await apiFetch('/requests/' + pendingRejectId + '/reject', {
+      method:'POST', body: JSON.stringify({officer_notes: notes})
+    });
+    document.getElementById('rejectDialog').close();
+    renderContent();
+  } catch(e) { alert_inline('操作失败：' + e.message); }
+}
+
+async function markPaid(id) {
+  try {
+    await apiFetch('/requests/' + id + '/mark_paid', {method:'POST', body:'{}'});
+    renderContent();
+  } catch(e) { alert_inline('操作失败：' + e.message); }
+}
+
+// ── 管理配置 ──────────────────────────────────────────────────────────────────
+async function renderConfig() {
+  document.getElementById('content').innerHTML = '<p class="loading">加载中…</p>';
+  try {
+    var cfg = await apiFetch('/config');
+    var html = '<h2>补损配置</h2>' +
+      '<div class="config-grid">' +
+      '<div class="form-group"><label>价格星域 ID（Region ID）</label>' +
+      '<input type="number" id="cfg_region" value="' + cfg.price_region_id + '" />' +
+      '<div style="font-size:.78rem;color:#5a5950;margin-top:4px">10000002=Jita / 10000043=Amarr</div></div>' +
+
+      '<div class="form-group"><label>订单类型</label>' +
+      '<select id="cfg_order_type">' +
+      '<option value="buy"' + (cfg.price_order_type==="buy"?" selected":"") + '>买单价（Buy Order）</option>' +
+      '<option value="sell"' + (cfg.price_order_type==="sell"?" selected":"") + '>卖单价（Sell Order）</option>' +
+      '</select></div>' +
+
+      '<div class="form-group"><label>价值系数（0.0 ~ 2.0）</label>' +
+      '<input type="number" step="0.01" min="0" max="2" id="cfg_coef" value="' + cfg.coefficient + '" /></div>' +
+
+      '<div class="form-group"><label>最低损失（ISK）</label>' +
+      '<input type="number" step="1000000" min="0" id="cfg_min" value="' + cfg.min_loss_value + '" /></div>' +
+
+      '<div class="form-group"><label>系统状态</label>' +
+      '<select id="cfg_enabled">' +
+      '<option value="true"' + (cfg.enabled?" selected":"") + '>开启（接受申请）</option>' +
+      '<option value="false"' + (!cfg.enabled?" selected":"") + '>关闭（暂停受理）</option>' +
+      '</select></div>' +
+      '</div>' +
+
+      '<button class="btn btn-primary" onclick="saveConfig()">保存配置</button>' +
+      '<div id="cfg_msg" style="margin-top:12px;font-size:.88rem"></div>';
+
+    document.getElementById('content').innerHTML = html;
+  } catch(e) {
+    document.getElementById('content').innerHTML = '<p class="empty" style="color:#e06060">加载失败：' + e.message + '</p>';
+  }
+}
+
+async function saveConfig() {
+  var payload = {
+    price_region_id: parseInt(document.getElementById('cfg_region').value),
+    price_order_type: document.getElementById('cfg_order_type').value,
+    coefficient: parseFloat(document.getElementById('cfg_coef').value),
+    min_loss_value: parseFloat(document.getElementById('cfg_min').value),
+    enabled: document.getElementById('cfg_enabled').value === 'true',
+  };
+  try {
+    await apiFetch('/config', {method:'PUT', body: JSON.stringify(payload)});
+    document.getElementById('cfg_msg').innerHTML = '<span style="color:#4caf50">✅ 配置已保存</span>';
+  } catch(e) {
+    document.getElementById('cfg_msg').innerHTML = '<span style="color:#e06060">保存失败：' + e.message + '</span>';
+  }
+}
+
+// ── 舰队快速提交 ──────────────────────────────────────────────────────────────
+var fleetKills = [];
+var selectedKills = new Set();
+
+async function renderFleet() {
+  document.getElementById('content').innerHTML = '<p class="loading">正在拉取舰队期间的损失记录，请稍候…</p>';
+  try {
+    var data = await apiFetch('/fleet/' + FLEET_ACTION_ID + '/kills');
+    fleetKills = data.items;
+    selectedKills.clear();
+
+    var html = '<div class="fleet-header">' +
+      '<h3>⚡ ' + data.fleet_action_name + '</h3>' +
+      '<div class="window">活动时间：' + fmtDate(data.window_start) + ' → ' + fmtDate(data.window_end) + '</div>' +
+      '</div>';
+
+    var submittable = fleetKills.filter(function(k){ return !k.already_submitted; });
+    if (fleetKills.length === 0) {
+      html += '<p class="empty">在此舰队活动期间未找到您的损失记录</p>';
+    } else {
+      html += '<div style="margin-bottom:12px;display:flex;gap:8px;align-items:center">' +
+        '<button class="btn btn-secondary btn-sm" onclick="selectAll()">全选</button>' +
+        '<button class="btn btn-secondary btn-sm" onclick="selectNone()">取消全选</button>' +
+        '<span style="font-size:.85rem;color:#7a796f">共 ' + fleetKills.length + ' 条，其中 ' + submittable.length + ' 条未提交</span>' +
+        '<button class="btn btn-primary" style="margin-left:auto" onclick="batchSubmit()">批量提交所选</button>' +
+        '</div>';
+
+      html += '<table><thead><tr>' +
+        '<th class="checkbox-col"><input type="checkbox" id="chkAll" onchange="toggleAll(this)"></th>' +
+        '<th>舰船</th><th>损失时间</th><th>损失价值</th><th>预计补损</th><th>状态</th>' +
+        '</tr></thead><tbody id="fleetTbody"></tbody></table>';
+
+      html += '<div id="fleet_msg" style="margin-top:12px;font-size:.88rem"></div>';
+    }
+
+    document.getElementById('content').innerHTML = html;
+    if (fleetKills.length > 0) renderFleetRows();
+  } catch(e) {
+    document.getElementById('content').innerHTML = '<p class="empty" style="color:#e06060">加载失败：' + e.message + '</p>';
+  }
+}
+
+function renderFleetRows() {
+  var tbody = document.getElementById('fleetTbody');
+  if (!tbody) return;
+  var html = '';
+  fleetKills.forEach(function(k, i) {
+    var disabled = k.already_submitted;
+    var checked = selectedKills.has(i);
+    html += '<tr class="kill-row' + (checked ? ' selected' : '') + '">' +
+      '<td><input type="checkbox" ' + (disabled ? 'disabled' : '') + (checked ? ' checked' : '') +
+      ' onchange="toggleKill(' + i + ', this)"></td>' +
+      '<td>' + k.ship_name + '</td>' +
+      '<td>' + fmtDate(k.killed_at) + '</td>' +
+      '<td class="isk">' + isk(k.loss_value_raw) + '</td>' +
+      '<td class="isk"><strong>' + isk(k.calculated_value) + '</strong></td>' +
+      '<td>' + (disabled ? '<span class="badge badge-approved">已提交</span>' : '<span class="badge badge-pending">未提交</span>') + '</td>' +
+      '</tr>';
+  });
+  tbody.innerHTML = html;
+}
+
+function toggleKill(i, el) {
+  if (el.checked) selectedKills.add(i);
+  else selectedKills.delete(i);
+  var row = el.closest('tr');
+  if (el.checked) row.classList.add('selected'); else row.classList.remove('selected');
+}
+
+function selectAll() {
+  fleetKills.forEach(function(k, i) { if (!k.already_submitted) selectedKills.add(i); });
+  renderFleetRows();
+}
+function selectNone() { selectedKills.clear(); renderFleetRows(); }
+function toggleAll(el) { if (el.checked) selectAll(); else selectNone(); }
+
+async function batchSubmit() {
+  if (selectedKills.size === 0) { alert_inline('请先选择要提交的损失记录'); return; }
+
+  // 获取角色列表（提交时需要指定角色）
+  var chars = [];
+  try {
+    chars = await apiFetch('/../fleet-action/characters');
+  } catch(e) {}
+
+  if (chars.length === 0) {
+    alert_inline('未找到可用角色，请联系管理员绑定角色');
+    return;
+  }
+
+  // 若只有一个角色直接提交，多个角色弹选择
+  var doSubmit = async function(charId) {
+    var errors = [];
+    var ok = 0;
+    for (var i of selectedKills) {
+      var k = fleetKills[i];
+      try {
+        await apiFetch('/requests', {
+          method: 'POST',
+          body: JSON.stringify({
+            zkb_url: k.zkb_url,
+            character_id: charId,
+            fleet_action_id: FLEET_ACTION_ID,
+          })
+        });
+        ok++;
+        k.already_submitted = true;
+      } catch(e) {
+        errors.push(k.ship_name + '：' + e.message);
+      }
+    }
+    selectedKills.clear();
+    renderFleetRows();
+    var msg = document.getElementById('fleet_msg');
+    if (msg) {
+      msg.innerHTML = '<span style="color:#4caf50">✅ 成功提交 ' + ok + ' 条</span>' +
+        (errors.length ? '<br><span style="color:#e06060">' + errors.join('<br>') + '</span>' : '');
+    }
+  };
+
+  if (chars.length === 1) {
+    await doSubmit(chars[0].value);
+  } else {
+    // 弹出角色选择 dialog
+    var d = document.createElement('dialog');
+    d.innerHTML = '<div class="dialog-header">选择提交角色</div>' +
+      '<div class="dialog-body">' +
+      '<div class="form-group"><label>角色</label>' +
+      '<select id="batchCharSel">' + chars.map(function(c){ return '<option value="'+c.value+'">'+c.label+'</option>'; }).join('') + '</select>' +
+      '</div></div>' +
+      '<div class="dialog-footer">' +
+      '<button class="btn btn-secondary" onclick="this.closest(\'dialog\').close();this.closest(\'dialog\').remove()">取消</button>' +
+      '<button class="btn btn-primary" id="batchOkBtn">确认</button></div>';
+    document.body.appendChild(d);
+    d.showModal();
+    d.querySelector('#batchOkBtn').onclick = async function() {
+      var charId = parseInt(d.querySelector('#batchCharSel').value);
+      d.close(); d.remove();
+      await doSubmit(charId);
+    };
+  }
+}
+
+// ── HelmSDK 初始化 ────────────────────────────────────────────────────────────
+HelmSDK.init(function(ctx) {
+  API_BASE = ctx.apiBase || '';
+
+  // 从 JWT payload 解析权限（简单 base64 解码）
+  try {
+    var token = HelmSDK.getToken() || '';
+    var payload = JSON.parse(atob(token.split('.')[1]));
+    USER_PERMS = payload.permissions || [];
+    IS_ADMIN   = !!payload.is_superuser;
+    IS_OFFICER = IS_ADMIN || USER_PERMS.indexOf('srp.officer') !== -1;
+  } catch(e) {}
+
+  renderTabs();
+  renderContent();
+});
+</script>
+</body>
+</html>

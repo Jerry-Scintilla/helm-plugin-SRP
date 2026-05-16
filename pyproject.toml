@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "helm-plugin-srp"
+version = "0.1.0"
+description = "舰船补损（SRP）管理系统，支持 zkillboard 链接解析、补损官审核和价格配置"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.entry-points."helm.plugins"]
+srp = "helm_plugin_srp.plugin:SrpPlugin"
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.setuptools.package-data]
+helm_plugin_srp = [
+    "frontend/dist/**",
+    "migrations/versions/*.py",
+]
