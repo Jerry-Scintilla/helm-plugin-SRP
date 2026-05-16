@@ -167,7 +167,7 @@ function renderTabs() {
   if (hasPerm('srp.submit')) tabs.push({id:'pap', label:'🏅 PAP 舰队补损'});
   if (FLEET_ACTION_ID)       tabs.push({id:'fleet', label:'⚡ 舰队快速提交'});
   tabs.push({id:'mine', label:'📋 我的申请'});
-  if (IS_OFFICER) tabs.push({id:'review', label:'🔍 待审核'});
+  if (IS_OFFICER) tabs.push({id:'review', label:'🛡️ 补损管理'});
   if (IS_ADMIN)   tabs.push({id:'config', label:'⚙️ 配置'});
 
   if (!CURRENT_TAB) {
@@ -191,7 +191,7 @@ function switchTab(id) {
 function renderContent() {
   if (CURRENT_TAB === 'pap')    renderPapFleet();
   else if (CURRENT_TAB === 'mine')   renderMine();
-  else if (CURRENT_TAB === 'review') renderReview();
+  else if (CURRENT_TAB === 'review') renderManage();
   else if (CURRENT_TAB === 'config') renderConfig();
   else if (CURRENT_TAB === 'fleet')  renderFleet();
 }
@@ -343,11 +343,11 @@ function alert_inline(msg) {
   d.showModal();
 }
 
-function requestTableHtml(items, showCharCol) {
+function requestTableHtml(items, showCharCol, showActions) {
   var html = '<table><thead><tr>' +
     (showCharCol ? '<th>角色</th>' : '') +
     '<th>舰船</th><th>损失</th><th>补损金额</th><th>状态</th><th>提交时间</th>';
-  if (IS_OFFICER) html += '<th>操作</th>';
+  if (showActions) html += '<th>操作</th>';
   html += '</tr></thead><tbody>';
 
   items.forEach(function(r) {
@@ -358,13 +358,15 @@ function requestTableHtml(items, showCharCol) {
       '<td class="isk"><strong>' + isk(r.calculated_value) + '</strong></td>' +
       '<td>' + badgeHtml(r.status) + '</td>' +
       '<td>' + fmtDate(r.created_at) + '</td>';
-    if (IS_OFFICER) {
+    if (showActions) {
       html += '<td><div class="action-row">';
       if (r.status === 'pending') {
         html += '<button class="btn btn-success btn-sm" onclick="approveReq(' + r.id + ')">批准</button>' +
                 '<button class="btn btn-danger btn-sm" onclick="openRejectDialog(' + r.id + ')">拒绝</button>';
       } else if (r.status === 'approved') {
         html += '<button class="btn btn-primary btn-sm" onclick="markPaid(' + r.id + ')">标记已付款</button>';
+      } else {
+        html += '<span style="color:#5a5950;font-size:.8rem">—</span>';
       }
       html += '</div></td>';
     }
@@ -374,16 +376,37 @@ function requestTableHtml(items, showCharCol) {
   return html;
 }
 
-// ── 待审核（补损官视图）────────────────────────────────────────────────────────
-async function renderReview() {
+// ── 补损管理（补损官视图）─────────────────────────────────────────────────────
+var manageStatusFilter = 'pending';
+
+async function renderManage() {
   document.getElementById('content').innerHTML = '<p class="loading">加载中…</p>';
   try {
-    var data = await apiFetch('/requests?status=pending&page_size=100');
-    var html = '<h2>待审核申请 <span style="font-size:.9rem;color:#7a796f">共 ' + data.total + ' 条</span></h2>';
+    var qs = '/requests?page_size=100' + (manageStatusFilter ? '&status=' + manageStatusFilter : '');
+    var data = await apiFetch(qs);
+
+    var statusOpts = [
+      ['', '全部状态'],
+      ['pending',  '⏳ 待审核'],
+      ['approved', '✅ 已批准'],
+      ['rejected', '❌ 已拒绝'],
+      ['paid',     '💰 已付款'],
+    ];
+    var filterBar = '<div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap">' +
+      '<select style="width:140px" onchange="manageStatusFilter=this.value;renderManage()">' +
+      statusOpts.map(function(o){
+        return '<option value="' + o[0] + '"' + (manageStatusFilter === o[0] ? ' selected' : '') + '>' + o[1] + '</option>';
+      }).join('') +
+      '</select>' +
+      '<span style="font-size:.85rem;color:#7a796f">共 ' + data.total + ' 条</span>' +
+      '<button class="btn btn-secondary btn-sm" style="margin-left:auto" onclick="renderManage()">刷新</button>' +
+      '</div>';
+
+    var html = '<h2>补损管理</h2>' + filterBar;
     if (data.total === 0) {
-      html += '<p class="empty">没有待审核的申请 🎉</p>';
+      html += '<p class="empty">' + (manageStatusFilter === 'pending' ? '没有待审核的申请 🎉' : '暂无符合条件的申请') + '</p>';
     } else {
-      html += requestTableHtml(data.items, true);
+      html += requestTableHtml(data.items, true, true);
     }
     document.getElementById('content').innerHTML = html;
   } catch(e) {
