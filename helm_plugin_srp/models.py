@@ -7,7 +7,6 @@ from sqlalchemy import (
     BigInteger,
     DateTime,
     Enum,
-    ForeignKey,
     Integer,
     Numeric,
     String,
@@ -34,10 +33,9 @@ class SrpRequest(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
-    # 申请人
+    # 申请人（跨 Base 引用 users.id，FK 约束由 migration 维护，ORM 层不声明）
     user_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
