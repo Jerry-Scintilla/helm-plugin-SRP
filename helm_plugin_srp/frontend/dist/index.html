@@ -84,6 +84,12 @@ dialog::backdrop{background:rgba(0,0,0,.6)}
 .fleet-header .window{font-size:.82rem;color:#7a796f}
 .kill-row.selected td{background:#1e2a18}
 .checkbox-col{width:36px}
+
+/* PAP 舰队选择 */
+.pap-select-bar{display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap}
+.pap-select-bar select{flex:1;min-width:240px}
+.pap-badge-active{display:inline-block;padding:2px 7px;border-radius:3px;font-size:.75rem;background:#0d2e0d;color:#4caf50;margin-left:6px}
+.pap-badge-ended {display:inline-block;padding:2px 7px;border-radius:3px;font-size:.75rem;background:#2a2a28;color:#7a796f;margin-left:6px}
 </style>
 </head>
 <body>
@@ -117,6 +123,10 @@ var IS_OFFICER = false;
 var IS_ADMIN = false;
 var CURRENT_TAB = '';
 var FLEET_ACTION_ID = null;
+
+// PAP 舰队选择状态
+var papFleets = [];       // 从 /my-pap-fleets 加载的舰队列表
+var PAP_FLEET_ID = null;  // 当前选中的舰队 ID
 
 // 从 URL 参数读取 fleet_action
 var urlParams = new URLSearchParams(window.location.search);
@@ -154,13 +164,14 @@ async function apiFetch(path, opts) {
 // ── Tab 渲染 ──────────────────────────────────────────────────────────────────
 function renderTabs() {
   var tabs = [];
-  if (FLEET_ACTION_ID) tabs.push({id:'fleet', label:'⚡ 舰队快速提交'});
+  if (hasPerm('srp.submit')) tabs.push({id:'pap', label:'🏅 PAP 舰队补损'});
+  if (FLEET_ACTION_ID)       tabs.push({id:'fleet', label:'⚡ 舰队快速提交'});
   tabs.push({id:'mine', label:'📋 我的申请'});
   if (IS_OFFICER) tabs.push({id:'review', label:'🔍 待审核'});
-  if (IS_ADMIN) tabs.push({id:'config', label:'⚙️ 配置'});
+  if (IS_ADMIN)   tabs.push({id:'config', label:'⚙️ 配置'});
 
   if (!CURRENT_TAB) {
-    CURRENT_TAB = FLEET_ACTION_ID ? 'fleet' : (IS_OFFICER ? 'review' : 'mine');
+    CURRENT_TAB = FLEET_ACTION_ID ? 'fleet' : (hasPerm('srp.submit') ? 'pap' : (IS_OFFICER ? 'review' : 'mine'));
   }
 
   var html = '';
@@ -178,15 +189,22 @@ function switchTab(id) {
 }
 
 function renderContent() {
-  if (CURRENT_TAB === 'mine') renderMine();
+  if (CURRENT_TAB === 'pap')    renderPapFleet();
+  else if (CURRENT_TAB === 'mine')   renderMine();
   else if (CURRENT_TAB === 'review') renderReview();
   else if (CURRENT_TAB === 'config') renderConfig();
-  else if (CURRENT_TAB === 'fleet') renderFleet();
+  else if (CURRENT_TAB === 'fleet')  renderFleet();
 }
 
 // ── 我的申请 ──────────────────────────────────────────────────────────────────
 var showSubmitForm = false;
 var previewData = null;
+var previewLoading = false;
+var submitLoading = false;
+var reviewLoading = false;
+var configSaving = false;
+var papBatchLoading = false;
+var fleetBatchLoading = false;
 
 async function renderMine() {
   document.getElementById('content').innerHTML = '<p class="loading">加载中…</p>';
@@ -213,13 +231,14 @@ async function renderMine() {
 function submitFormHtml() {
   var html = '<div class="preview-card" style="margin-bottom:16px">' +
     '<h3>提交补损申请</h3>' +
-    '<div class="form-group"><label>zkillboard 链接</label>' +
-    '<input type="text" id="zkbUrl" placeholder="https://zkillboard.com/kill/12345/" /></div>' +
+    '<div class="form-group"><label>ESI Killmail 链接</label>' +
+    '<input type="text" id="zkbUrl" placeholder="https://esi.evetech.net/killmails/123456789/abc123def…" /></div>' +
     '<div class="form-group"><label>使用角色</label>' +
     '<select id="charSelect"><option value="">加载角色列表…</option></select></div>' +
     '<div class="form-group"><label>备注（可选）</label>' +
     '<textarea id="submitNotes" placeholder="如：在 X 舰队活动期间损失"></textarea></div>' +
-    '<button class="btn btn-secondary btn-sm" onclick="previewKm()" style="margin-right:8px">预览补损金额</button>' +
+    '<button id="previewBtn" class="btn btn-secondary btn-sm" onclick="previewKm()" style="margin-right:8px"' +
+    (previewLoading ? ' disabled' : '') + '>' + (previewLoading ? '⏳ 查询中…' : '预览补损金额') + '</button>' +
     '</div>';
 
   if (previewData) {
@@ -230,7 +249,7 @@ function submitFormHtml() {
       ' · 价格来源：' + previewData.price_source +
       ' · 系数：' + previewData.coefficient + '</div>' +
       (previewData.eligible
-        ? '<div style="margin-top:12px"><button class="btn btn-primary" onclick="doSubmit()">确认提交</button></div>'
+        ? '<div style="margin-top:12px"><button id="submitBtn" class="btn btn-primary" onclick="doSubmit()"' + (submitLoading?' disabled':'') + '>' + (submitLoading?'⏳ 提交中…':'确认提交') + '</button></div>'
         : '<div class="ineligible" style="margin-top:8px">⚠ 不符合补损资格：' + previewData.ineligible_reason + '</div>') +
       '</div>';
   }
@@ -270,30 +289,46 @@ async function loadCharacters() {
 
 async function previewKm() {
   var url = (document.getElementById('zkbUrl') || {}).value;
-  if (!url) { alert_inline('请填写 zkillboard 链接'); return; }
+  if (!url) { alert_inline('请填写 ESI Killmail 链接'); return; }
+  if (previewLoading) return;
+
+  // 立即禁用按钮，防止重复点击
+  var btn = document.getElementById('previewBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 查询中…'; }
+  previewLoading = true;
+
   try {
     previewData = await apiFetch('/killmail/preview?url=' + encodeURIComponent(url));
-    renderMine();
   } catch(e) {
     alert_inline('预览失败：' + e.message);
+  } finally {
+    previewLoading = false;
   }
+  renderMine();
 }
 
 async function doSubmit() {
-  if (!previewData) return;
+  if (!previewData || submitLoading) return;
   var charId = parseInt((document.getElementById('charSelect') || {}).value);
   var notes = (document.getElementById('submitNotes') || {}).value || null;
   if (!charId) { alert_inline('请选择角色'); return; }
+
+  var btn = document.getElementById('submitBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 提交中…'; }
+  submitLoading = true;
+
   try {
     await apiFetch('/requests', {
       method: 'POST',
       body: JSON.stringify({zkb_url: previewData.zkb_url || document.getElementById('zkbUrl').value, character_id: charId, notes: notes})
     });
     showSubmitForm = false; previewData = null;
-    renderMine();
   } catch(e) {
     alert_inline('提交失败：' + e.message);
+  } finally {
+    submitLoading = false;
   }
+  renderMine();
 }
 
 function alert_inline(msg) {
@@ -354,10 +389,13 @@ async function renderReview() {
 }
 
 async function approveReq(id) {
+  if (reviewLoading) return;
+  reviewLoading = true;
   try {
     await apiFetch('/requests/' + id + '/approve', {method:'POST', body:'{}'});
     renderContent();
   } catch(e) { alert_inline('操作失败：' + e.message); }
+  finally { reviewLoading = false; }
 }
 
 var pendingRejectId = null;
@@ -369,8 +407,11 @@ function openRejectDialog(id) {
 }
 
 async function doReject() {
-  if (!pendingRejectId) return;
+  if (!pendingRejectId || reviewLoading) return;
   var notes = document.getElementById('rejectNotes').value || null;
+  var confirmBtn = document.getElementById('rejectConfirmBtn');
+  if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = '⏳ 处理中…'; }
+  reviewLoading = true;
   try {
     await apiFetch('/requests/' + pendingRejectId + '/reject', {
       method:'POST', body: JSON.stringify({officer_notes: notes})
@@ -378,13 +419,20 @@ async function doReject() {
     document.getElementById('rejectDialog').close();
     renderContent();
   } catch(e) { alert_inline('操作失败：' + e.message); }
+  finally {
+    reviewLoading = false;
+    if (confirmBtn && confirmBtn.isConnected) { confirmBtn.disabled = false; confirmBtn.textContent = '确认拒绝'; }
+  }
 }
 
 async function markPaid(id) {
+  if (reviewLoading) return;
+  reviewLoading = true;
   try {
     await apiFetch('/requests/' + id + '/mark_paid', {method:'POST', body:'{}'});
     renderContent();
   } catch(e) { alert_inline('操作失败：' + e.message); }
+  finally { reviewLoading = false; }
 }
 
 // ── 管理配置 ──────────────────────────────────────────────────────────────────
@@ -427,6 +475,7 @@ async function renderConfig() {
 }
 
 async function saveConfig() {
+  if (configSaving) return;
   var payload = {
     price_region_id: parseInt(document.getElementById('cfg_region').value),
     price_order_type: document.getElementById('cfg_order_type').value,
@@ -434,11 +483,235 @@ async function saveConfig() {
     min_loss_value: parseFloat(document.getElementById('cfg_min').value),
     enabled: document.getElementById('cfg_enabled').value === 'true',
   };
+  var btn = document.querySelector('button[onclick="saveConfig()"]');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 保存中…'; }
+  configSaving = true;
   try {
     await apiFetch('/config', {method:'PUT', body: JSON.stringify(payload)});
     document.getElementById('cfg_msg').innerHTML = '<span style="color:#4caf50">✅ 配置已保存</span>';
   } catch(e) {
     document.getElementById('cfg_msg').innerHTML = '<span style="color:#e06060">保存失败：' + e.message + '</span>';
+  } finally {
+    configSaving = false;
+    if (btn && btn.isConnected) { btn.disabled = false; btn.textContent = '保存配置'; }
+  }
+}
+
+// ── PAP 舰队补损 ──────────────────────────────────────────────────────────────
+var papFleetKills = [];
+var papSelectedKills = new Set();
+
+async function renderPapFleet() {
+  var content = document.getElementById('content');
+  content.innerHTML = '<p class="loading">加载 PAP 记录中…</p>';
+
+  // 首次加载舰队列表
+  if (papFleets.length === 0) {
+    try {
+      papFleets = await apiFetch('/my-pap-fleets');
+    } catch(e) {
+      content.innerHTML = '<p class="empty" style="color:#e06060">无法加载 PAP 记录：' + e.message + '</p>';
+      return;
+    }
+  }
+
+  if (papFleets.length === 0) {
+    content.innerHTML = '<h2>PAP 舰队补损</h2><p class="empty">未找到您的 PAP 记录</p>';
+    return;
+  }
+
+  // 渲染下拉选择栏
+  var selectHtml = '<div class="pap-select-bar">' +
+    '<select id="papFleetSel" onchange="onPapFleetChange()">' +
+    '<option value="">— 请选择舰队 —</option>';
+
+  papFleets.forEach(function(f) {
+    var label = f.fleet_action_name + '  (' + fmtDate(f.window_start) + ')';
+    var badge = f.status === 'active'
+      ? '<span class="pap-badge-active">进行中</span>'
+      : '';
+    selectHtml += '<option value="' + f.fleet_action_id + '"' +
+      (PAP_FLEET_ID === f.fleet_action_id ? ' selected' : '') + '>' + label + '</option>';
+    void badge; // badge 用于后续 header 显示
+  });
+
+  selectHtml += '</select>' +
+    '<button class="btn btn-secondary btn-sm" onclick="papFleets=[];PAP_FLEET_ID=null;papFleetKills=[];renderPapFleet()">刷新列表</button>' +
+    '</div>';
+
+  // 已选舰队信息 header
+  var headerHtml = '';
+  var killsHtml = '';
+
+  if (PAP_FLEET_ID) {
+    var fleet = papFleets.find(function(f){ return f.fleet_action_id === PAP_FLEET_ID; });
+    if (fleet) {
+      var statusBadge = fleet.status === 'active'
+        ? '<span class="pap-badge-active">⚡ 进行中</span>'
+        : '<span class="pap-badge-ended">已结束</span>';
+      headerHtml = '<div class="fleet-header">' +
+        '<h3>' + fleet.fleet_action_name + statusBadge + '</h3>' +
+        '<div class="window">活动时间：' + fmtDate(fleet.window_start) + ' → ' +
+          (fleet.window_end ? fmtDate(fleet.window_end) : '进行中') + '</div>' +
+        '<div class="window" style="margin-top:2px">PAP 获得时间：' + fmtDate(fleet.pap_issued_at) + '</div>' +
+        '</div>';
+    }
+
+    if (papFleetKills.length === 0) {
+      killsHtml = '<p class="loading" id="papKillsLoading">正在拉取该舰队期间的损失记录…</p>';
+    } else {
+      killsHtml = renderPapKillsTable();
+    }
+  } else {
+    killsHtml = '<p class="empty" style="padding-top:32px">请从上方下拉列表选择一场舰队</p>';
+  }
+
+  content.innerHTML = '<h2>PAP 舰队补损</h2>' + selectHtml + headerHtml + killsHtml +
+    '<div id="pap_msg" style="margin-top:12px;font-size:.88rem"></div>';
+
+  // 如果选了舰队但 kills 还没加载，异步拉取
+  if (PAP_FLEET_ID && papFleetKills.length === 0) {
+    try {
+      var data = await apiFetch('/fleet/' + PAP_FLEET_ID + '/kills');
+      papFleetKills = data.items;
+      papSelectedKills.clear();
+      var loadingEl = document.getElementById('papKillsLoading');
+      if (loadingEl) loadingEl.outerHTML = renderPapKillsTable();
+    } catch(e) {
+      var loadingEl2 = document.getElementById('papKillsLoading');
+      if (loadingEl2) loadingEl2.outerHTML = '<p class="empty" style="color:#e06060">加载损失记录失败：' + e.message + '</p>';
+    }
+  }
+}
+
+function onPapFleetChange() {
+  var sel = document.getElementById('papFleetSel');
+  if (!sel) return;
+  var val = parseInt(sel.value);
+  PAP_FLEET_ID = val || null;
+  papFleetKills = [];
+  papSelectedKills.clear();
+  renderPapFleet();
+}
+
+function renderPapKillsTable() {
+  var submittable = papFleetKills.filter(function(k){ return !k.already_submitted; });
+
+  if (papFleetKills.length === 0) {
+    return '<p class="empty">在此舰队活动期间未找到您的损失记录</p>';
+  }
+
+  var html = '<div style="margin-bottom:12px;display:flex;gap:8px;align-items:center">' +
+    '<button class="btn btn-secondary btn-sm" onclick="papSelectAll()">全选</button>' +
+    '<button class="btn btn-secondary btn-sm" onclick="papSelectNone()">取消全选</button>' +
+    '<span style="font-size:.85rem;color:#7a796f">共 ' + papFleetKills.length + ' 条，其中 ' + submittable.length + ' 条未提交</span>' +
+    '<button class="btn btn-primary" style="margin-left:auto" onclick="papBatchSubmit()">批量提交所选</button>' +
+    '</div>';
+
+  html += '<table><thead><tr>' +
+    '<th class="checkbox-col"><input type="checkbox" id="papChkAll" onchange="papToggleAll(this)"></th>' +
+    '<th>舰船</th><th>损失时间</th><th>损失价值</th><th>预计补损</th><th>状态</th>' +
+    '</tr></thead><tbody id="papTbody"></tbody></table>';
+
+  // 异步填充 tbody（在 innerHTML 设置后调用）
+  setTimeout(renderPapRows, 0);
+  return html;
+}
+
+function renderPapRows() {
+  var tbody = document.getElementById('papTbody');
+  if (!tbody) return;
+  var html = '';
+  papFleetKills.forEach(function(k, i) {
+    var disabled = k.already_submitted;
+    var checked = papSelectedKills.has(i);
+    html += '<tr class="kill-row' + (checked ? ' selected' : '') + '">' +
+      '<td><input type="checkbox"' + (disabled ? ' disabled' : '') + (checked ? ' checked' : '') +
+      ' onchange="papToggleKill(' + i + ',this)"></td>' +
+      '<td>' + k.ship_name + '</td>' +
+      '<td>' + fmtDate(k.killed_at) + '</td>' +
+      '<td class="isk">' + isk(k.loss_value_raw) + '</td>' +
+      '<td class="isk"><strong>' + isk(k.calculated_value) + '</strong></td>' +
+      '<td>' + (disabled
+        ? '<span class="badge badge-approved">已提交</span>'
+        : '<span class="badge badge-pending">未提交</span>') + '</td>' +
+      '</tr>';
+  });
+  tbody.innerHTML = html;
+}
+
+function papToggleKill(i, el) {
+  if (el.checked) papSelectedKills.add(i); else papSelectedKills.delete(i);
+  var row = el.closest('tr');
+  if (el.checked) row.classList.add('selected'); else row.classList.remove('selected');
+}
+function papSelectAll()  { papFleetKills.forEach(function(k,i){ if(!k.already_submitted) papSelectedKills.add(i); }); renderPapRows(); }
+function papSelectNone() { papSelectedKills.clear(); renderPapRows(); }
+function papToggleAll(el){ if(el.checked) papSelectAll(); else papSelectNone(); }
+
+async function papBatchSubmit() {
+  if (papSelectedKills.size === 0) { alert_inline('请先选择要提交的损失记录'); return; }
+  if (papBatchLoading) return;
+
+  var chars = [];
+  try { chars = await apiFetch('/../fleet-action/characters'); } catch(e) {}
+
+  if (chars.length === 0) { alert_inline('未找到可用角色，请联系管理员绑定角色'); return; }
+
+  var doSubmitPap = async function(charId) {
+    var batchBtn = document.querySelector('button[onclick="papBatchSubmit()"]');
+    if (batchBtn) { batchBtn.disabled = true; batchBtn.textContent = '⏳ 提交中…'; }
+    papBatchLoading = true;
+
+    var errors = [], ok = 0;
+    for (var i of papSelectedKills) {
+      var k = papFleetKills[i];
+      try {
+        await apiFetch('/requests', {
+          method: 'POST',
+          body: JSON.stringify({
+            zkb_url: k.zkb_url,
+            character_id: charId,
+            fleet_action_id: PAP_FLEET_ID,
+          })
+        });
+        ok++;
+        k.already_submitted = true;
+      } catch(e) {
+        errors.push(k.ship_name + '：' + e.message);
+      }
+    }
+    papSelectedKills.clear();
+    papBatchLoading = false;
+    renderPapRows();
+    var msg = document.getElementById('pap_msg');
+    if (msg) {
+      msg.innerHTML = '<span style="color:#4caf50">✅ 成功提交 ' + ok + ' 条</span>' +
+        (errors.length ? '<br><span style="color:#e06060">' + errors.join('<br>') + '</span>' : '');
+    }
+    if (batchBtn && batchBtn.isConnected) { batchBtn.disabled = false; batchBtn.textContent = '批量提交所选'; }
+  };
+
+  if (chars.length === 1) {
+    await doSubmitPap(chars[0].value);
+  } else {
+    var d = document.createElement('dialog');
+    d.innerHTML = '<div class="dialog-header">选择提交角色</div>' +
+      '<div class="dialog-body"><div class="form-group"><label>角色</label>' +
+      '<select id="papBatchCharSel">' + chars.map(function(c){ return '<option value="'+c.value+'">'+c.label+'</option>'; }).join('') +
+      '</select></div></div>' +
+      '<div class="dialog-footer">' +
+      '<button class="btn btn-secondary" onclick="this.closest(\'dialog\').close();this.closest(\'dialog\').remove()">取消</button>' +
+      '<button class="btn btn-primary" id="papBatchOk">确认</button></div>';
+    document.body.appendChild(d);
+    d.showModal();
+    d.querySelector('#papBatchOk').onclick = async function() {
+      var charId = parseInt(d.querySelector('#papBatchCharSel').value);
+      var okBtn = d.querySelector('#papBatchOk');
+      if (okBtn) { okBtn.disabled = true; okBtn.textContent = '⏳ 提交中…'; }
+      d.close(); d.remove();
+      await doSubmitPap(charId);
+    };
   }
 }
 
@@ -520,8 +793,8 @@ function toggleAll(el) { if (el.checked) selectAll(); else selectNone(); }
 
 async function batchSubmit() {
   if (selectedKills.size === 0) { alert_inline('请先选择要提交的损失记录'); return; }
+  if (fleetBatchLoading) return;
 
-  // 获取角色列表（提交时需要指定角色）
   var chars = [];
   try {
     chars = await apiFetch('/../fleet-action/characters');
@@ -532,8 +805,11 @@ async function batchSubmit() {
     return;
   }
 
-  // 若只有一个角色直接提交，多个角色弹选择
-  var doSubmit = async function(charId) {
+  var doFleetSubmit = async function(charId) {
+    var batchBtn = document.querySelector('button[onclick="batchSubmit()"]');
+    if (batchBtn) { batchBtn.disabled = true; batchBtn.textContent = '⏳ 提交中…'; }
+    fleetBatchLoading = true;
+
     var errors = [];
     var ok = 0;
     for (var i of selectedKills) {
@@ -554,18 +830,19 @@ async function batchSubmit() {
       }
     }
     selectedKills.clear();
+    fleetBatchLoading = false;
     renderFleetRows();
     var msg = document.getElementById('fleet_msg');
     if (msg) {
       msg.innerHTML = '<span style="color:#4caf50">✅ 成功提交 ' + ok + ' 条</span>' +
         (errors.length ? '<br><span style="color:#e06060">' + errors.join('<br>') + '</span>' : '');
     }
+    if (batchBtn && batchBtn.isConnected) { batchBtn.disabled = false; batchBtn.textContent = '批量提交所选'; }
   };
 
   if (chars.length === 1) {
-    await doSubmit(chars[0].value);
+    await doFleetSubmit(chars[0].value);
   } else {
-    // 弹出角色选择 dialog
     var d = document.createElement('dialog');
     d.innerHTML = '<div class="dialog-header">选择提交角色</div>' +
       '<div class="dialog-body">' +
@@ -579,8 +856,10 @@ async function batchSubmit() {
     d.showModal();
     d.querySelector('#batchOkBtn').onclick = async function() {
       var charId = parseInt(d.querySelector('#batchCharSel').value);
+      var okBtn = d.querySelector('#batchOkBtn');
+      if (okBtn) { okBtn.disabled = true; okBtn.textContent = '⏳ 提交中…'; }
       d.close(); d.remove();
-      await doSubmit(charId);
+      await doFleetSubmit(charId);
     };
   }
 }

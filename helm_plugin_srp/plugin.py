@@ -52,6 +52,14 @@ class SrpPlugin(HelmPlugin):
         """注册为 srp.motd_fragment 提供者，供 fleet-action 在 MOTD 中插入 SRP 链接。"""
         extension_registry.register("srp.motd_fragment", self, self.name)
 
+        # 兼容 helm-plugin-mcp：将 SRP 工具暴露给 MCP 客户端（AI 代理）
+        # MCP 插件未安装时静默跳过，不影响 SRP 正常功能
+        try:
+            from helm_plugin_srp.tool_provider import SrpMCPToolProvider
+            extension_registry.register("mcp.tool_provider", SrpMCPToolProvider(), self.name)
+        except ImportError:
+            pass
+
     # ── srp.motd_fragment 实现 ────────────────────────────────────────────────
 
     def get_motd_fragment(self, fleet_action_id: int) -> str:

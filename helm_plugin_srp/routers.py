@@ -19,6 +19,7 @@ from helm_plugin_srp.schemas import (
     FleetKillItem,
     FleetKillsResponse,
     KillmailPreviewResponse,
+    MyPapFleetItem,
     ReviewSrpRequest,
     SrpConfigResponse,
     SrpConfigUpdateRequest,
@@ -205,9 +206,15 @@ async def submit_request(
 ):
     char = await _verify_character_ownership(body.character_id, current_user, db)
 
+    # 解析 ESI URL，顺便做格式校验
+    try:
+        killmail_id_check, _ = km_svc.parse_esi_url(body.zkb_url)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
     # 检查是否重复提交
     existing = await db.execute(
-        select(SrpRequest).where(SrpRequest.killmail_id == km_svc.parse_zkb_url(body.zkb_url))
+        select(SrpRequest).where(SrpRequest.killmail_id == killmail_id_check)
     )
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="该击杀已存在补损申请，不可重复提交")
@@ -448,7 +455,7 @@ async def get_fleet_kills(
     for char in characters:
         try:
             losses = await km_svc.fetch_character_losses(
-                char.character_id, window_start, window_end
+                char.character_id, window_start, window_end, db
             )
         except Exception:
             continue
@@ -495,6 +502,58 @@ async def get_fleet_kills(
         window_end=window_end,
         items=all_kills,
     )
+
+
+# ── GET /my-pap-fleets ────────────────────────────────────────────────────────
+
+@router.get(
+    "/my-pap-fleets",
+    response_model=list[MyPapFleetItem],
+    summary="获取当前用户有 PAP 记录的舰队列表",
+)
+async def my_pap_fleets(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_permission("srp.submit")),
+):
+    """
+    查询当前用户所有绑定角色的 PAP 记录，按发放时间倒序返回最近 50 场舰队。
+    fleet-action 插件未安装时返回 503。
+    """
+    try:
+        from fleet_action.models import FleetAction, PapRecord
+    except ImportError:
+        raise HTTPException(status_code=503, detail="fleet-action 插件未安装，无法获取 PAP 记录")
+
+    chars_result = await db.execute(
+        select(Character).where(Character.user_id == current_user.id)
+    )
+    char_ids = [c.character_id for c in chars_result.scalars().all()]
+    if not char_ids:
+        return []
+
+    rows = await db.execute(
+        select(
+            FleetAction,
+            func.min(PapRecord.issued_at).label("pap_issued_at"),
+        )
+        .join(PapRecord, PapRecord.action_id == FleetAction.id)
+        .where(PapRecord.character_id.in_(char_ids))
+        .group_by(FleetAction.id)
+        .order_by(func.min(PapRecord.issued_at).desc())
+        .limit(50)
+    )
+
+    return [
+        MyPapFleetItem(
+            fleet_action_id=row.FleetAction.id,
+            fleet_action_name=row.FleetAction.name,
+            status=row.FleetAction.status,
+            window_start=row.FleetAction.created_at,
+            window_end=row.FleetAction.ended_at,
+            pap_issued_at=row.pap_issued_at,
+        )
+        for row in rows.all()
+    ]
 
 
 async def _fetch_fleet_action(fleet_action_id: int, current_user: User) -> dict:

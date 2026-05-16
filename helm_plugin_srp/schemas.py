@@ -116,3 +116,14 @@ class FleetKillsResponse(BaseModel):
     window_start: datetime
     window_end: datetime
     items: list[FleetKillItem]
+
+
+# ── PAP 舰队列表 ──────────────────────────────────────────────────────────────
+
+class MyPapFleetItem(BaseModel):
+    fleet_action_id: int
+    fleet_action_name: str
+    status: str               # "active" | "ended"
+    window_start: datetime
+    window_end: datetime | None
+    pap_issued_at: datetime
