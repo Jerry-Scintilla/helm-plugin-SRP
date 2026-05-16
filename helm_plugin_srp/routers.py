@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.permissions import get_current_user, require_permission
 from app.models.character import Character
+from app.models.rbac import Permission, RolePermission, UserRole
 from app.models.user import User
 
 from helm_plugin_srp.models import DEFAULT_CONFIG, SrpConfig, SrpRequest, SrpStatus
@@ -74,6 +75,33 @@ async def _verify_character_ownership(
     if char is None:
         raise HTTPException(status_code=403, detail="该角色不属于您的账号")
     return char
+
+
+# ── GET /me ───────────────────────────────────────────────────────────────────
+
+@router.get("/me", summary="当前用户的 SRP 权限标志")
+async def get_me(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    perm_result = await db.execute(
+        select(Permission.name)
+        .join(RolePermission, RolePermission.permission_id == Permission.id)
+        .join(UserRole, UserRole.role_id == RolePermission.role_id)
+        .where(UserRole.user_id == current_user.id)
+    )
+    perms = sorted({row[0] for row in perm_result.fetchall()})
+    is_admin = bool(current_user.is_superuser) or "global.superuser" in perms or "srp.admin" in perms
+    is_officer = is_admin or "srp.officer" in perms
+    can_submit = is_admin or "srp.submit" in perms
+    return {
+        "user_id": current_user.id,
+        "is_superuser": bool(current_user.is_superuser),
+        "is_admin": is_admin,
+        "is_officer": is_officer,
+        "can_submit": can_submit,
+        "permissions": perms,
+    }
 
 
 # ── GET /config ───────────────────────────────────────────────────────────────

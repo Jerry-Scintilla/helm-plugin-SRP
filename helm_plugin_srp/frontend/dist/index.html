@@ -586,17 +586,18 @@ async function batchSubmit() {
 }
 
 // ── HelmSDK 初始化 ────────────────────────────────────────────────────────────
-HelmSDK.init(function(ctx) {
+HelmSDK.init(async function(ctx) {
   API_BASE = ctx.apiBase || '';
 
-  // 从 JWT payload 解析权限（简单 base64 解码）
+  // 从后端 /me 端点拉取权限（Helm 的 JWT payload 不含 is_superuser / permissions）
   try {
-    var token = HelmSDK.getToken() || '';
-    var payload = JSON.parse(atob(token.split('.')[1]));
-    USER_PERMS = payload.permissions || [];
-    IS_ADMIN   = !!payload.is_superuser;
-    IS_OFFICER = IS_ADMIN || USER_PERMS.indexOf('srp.officer') !== -1;
-  } catch(e) {}
+    var me = await apiFetch('/me');
+    USER_PERMS = me.permissions || [];
+    IS_ADMIN   = !!me.is_admin;
+    IS_OFFICER = !!me.is_officer;
+  } catch(e) {
+    USER_PERMS = []; IS_ADMIN = false; IS_OFFICER = false;
+  }
 
   renderTabs();
   renderContent();

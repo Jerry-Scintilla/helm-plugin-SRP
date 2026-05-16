@@ -1,13 +1,9 @@
-"""ESI 市场价格查询与补损金额计算。"""
+"""市场价格查询（复用 Helm 核心服务）与补损金额计算。"""
 
 from __future__ import annotations
 
 import json
 from typing import Any
-
-import httpx
-
-_ESI_BASE = "https://esi.evetech.net/latest"
 
 # 星域 ID → 可读名称映射（常用星域）
 _REGION_NAMES: dict[int, str] = {
@@ -25,48 +21,17 @@ async def get_best_price(
     order_type: str,  # "buy" | "sell"
 ) -> float:
     """
-    从 ESI 市场获取指定 type_id 在 region_id 的最优价格。
-    - order_type="buy"  → 返回最高买单价（buy order max price）
-    - order_type="sell" → 返回最低卖单价（sell order min price）
-    ESI: GET /markets/{region_id}/orders/?type_id={type_id}&order_type={buy|sell}
+    通过 Helm 核心市场服务查询最优价格（带 Redis 缓存，TTL 1h）。
+    - order_type="buy"  → MarketPrice.best_buy（最高买单价）
+    - order_type="sell" → MarketPrice.best_sell（最低卖单价）
     """
-    url = f"{_ESI_BASE}/markets/{region_id}/orders/"
-    params: dict[str, Any] = {
-        "type_id": type_id,
-        "order_type": order_type,
-    }
+    from app.services.market import get_market_prices
 
-    prices: list[float] = []
-    async with httpx.AsyncClient(timeout=15.0) as client:
-        # ESI 市场端点通常只有 1 页（单 type 查询），但保险起见处理分页
-        page = 1
-        while True:
-            params["page"] = page
-            resp = await client.get(
-                url,
-                params=params,
-                headers={"User-Agent": "Helm-SRP-Plugin/0.1"},
-            )
-            if resp.status_code == 404:
-                break
-            resp.raise_for_status()
-            orders: list[dict] = resp.json()
-            if not orders:
-                break
-            for order in orders:
-                # is_buy_order=True → 买单；False → 卖单
-                is_buy = order.get("is_buy_order", False)
-                if order_type == "buy" and is_buy:
-                    prices.append(float(order.get("price", 0)))
-                elif order_type == "sell" and not is_buy:
-                    prices.append(float(order.get("price", 0)))
-            # ESI 单 type 查询只有 1 页
-            break
-
-    if not prices:
+    prices = await get_market_prices([type_id], region_id=region_id)
+    mp = prices.get(type_id)
+    if mp is None:
         return 0.0
-
-    return max(prices) if order_type == "buy" else min(prices)
+    return float(mp.best_buy or 0.0) if order_type == "buy" else float(mp.best_sell or 0.0)
 
 
 def calculate_srp_value(raw_value: float, coefficient: float) -> float:
