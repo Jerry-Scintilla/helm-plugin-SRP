@@ -11,6 +11,7 @@ from sqlalchemy import (
     Numeric,
     String,
     Text,
+    JSON,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -63,6 +64,9 @@ class SrpRequest(Base):
 
     # 关联舰队行动（可选）
     fleet_action_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+
+    # 损毁物品列表（JSON，格式：[{type_id, qty_destroyed, qty_dropped}, ...]）
+    items_json: Mapped[list | None] = mapped_column(JSON, nullable=True)
 
     # 备注
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)

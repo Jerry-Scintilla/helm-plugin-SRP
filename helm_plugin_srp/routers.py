@@ -290,6 +290,7 @@ async def submit_request(
         fleet_action_id=body.fleet_action_id,
         notes=body.notes,
         created_at=datetime.now(UTC),
+        items_json=km.get("items", []),
     )
     db.add(srp)
     await db.commit()
@@ -374,24 +375,7 @@ async def get_request_detail(
     if not is_officer and srp.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="无权查看该申请")
 
-    # 从 ESI 重新拉取 killmail 以获取物品列表
-    raw_items: list[dict] = []
-    try:
-        km_raw = await km_svc.fetch_esi_killmail(srp.killmail_id, srp.killmail_hash)
-        victim = km_raw.get("victim", {})
-        for raw_item in victim.get("items", []):
-            if "type_id" not in raw_item:
-                continue
-            qty_d = raw_item.get("quantity_destroyed", 0)
-            qty_p = raw_item.get("quantity_dropped", 0)
-            if qty_d > 0 or qty_p > 0:
-                raw_items.append({
-                    "type_id": raw_item["type_id"],
-                    "qty_destroyed": qty_d,
-                    "qty_dropped": qty_p,
-                })
-    except Exception:
-        pass
+    raw_items: list[dict] = srp.items_json or []
 
     all_type_ids = list({srp.ship_type_id} | {i["type_id"] for i in raw_items})
     names = await resolve_type_names(all_type_ids, db)

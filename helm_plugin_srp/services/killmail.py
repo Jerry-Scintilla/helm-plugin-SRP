@@ -85,13 +85,13 @@ async def get_killmail_info(esi_url: str) -> dict[str, Any]:
 
     items = []
     for raw_item in victim.get("items", []):
-        if "type_id" not in raw_item:
+        if "item_type_id" not in raw_item:
             continue
         qty_d = raw_item.get("quantity_destroyed", 0)
         qty_p = raw_item.get("quantity_dropped", 0)
         if qty_d > 0 or qty_p > 0:
             items.append({
-                "type_id": raw_item["type_id"],
+                "type_id": raw_item["item_type_id"],
                 "qty_destroyed": qty_d,
                 "qty_dropped": qty_p,
             })
