@@ -93,6 +93,17 @@ onMounted(loadConfig)
             ]"
           />
         </div>
+
+        <div class="form-group">
+          <label>{{ t('config.fullLoss') }}</label>
+          <CustomSelect
+            v-model="config.full_loss"
+            :options="[
+              { value: true,  label: t('config.fullLossOn') },
+              { value: false, label: t('config.fullLossOff') },
+            ]"
+          />
+        </div>
       </div>
 
       <button class="btn btn-primary" :disabled="saving" @click="onSave">

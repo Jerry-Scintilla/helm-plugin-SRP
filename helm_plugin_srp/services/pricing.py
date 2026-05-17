@@ -34,6 +34,34 @@ async def get_best_price(
     return float(mp.best_buy or 0.0) if order_type == "buy" else float(mp.best_sell or 0.0)
 
 
+async def get_items_value(
+    items: list[dict],
+    region_id: int,
+    order_type: str,
+) -> float:
+    """
+    批量查询物品市场价，返回全部物品的总价值。
+    items 格式：[{type_id, qty_destroyed, qty_dropped}, ...]
+    计价依据：qty_destroyed（装备损毁数量），不计 qty_dropped（掉落的可回收）。
+    """
+    if not items:
+        return 0.0
+
+    from app.services.market import get_market_prices
+
+    type_ids = list({i["type_id"] for i in items})
+    prices = await get_market_prices(type_ids, region_id=region_id)
+
+    total = 0.0
+    for item in items:
+        mp = prices.get(item["type_id"])
+        if mp is None:
+            continue
+        unit_price = float(mp.best_buy or 0.0) if order_type == "buy" else float(mp.best_sell or 0.0)
+        total += unit_price * item["qty_destroyed"]
+    return total
+
+
 def calculate_srp_value(raw_value: float, coefficient: float) -> float:
     """根据系数计算实际补损金额，四舍五入到 ISK 整数。"""
     return round(raw_value * coefficient, 2)
@@ -64,6 +92,7 @@ async def load_config(db) -> dict[str, Any]:
         "enabled":             cfg.get("enabled",               DEFAULT_CONFIG["enabled"]) == "true",
         "min_loss_value":      float(cfg.get("min_loss_value",  DEFAULT_CONFIG["min_loss_value"])),
         "eligible_ship_groups": json.loads(cfg.get("eligible_ship_groups", DEFAULT_CONFIG["eligible_ship_groups"])),
+        "full_loss":           cfg.get("full_loss",             DEFAULT_CONFIG["full_loss"]) == "true",
     }
 
 

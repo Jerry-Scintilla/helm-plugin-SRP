@@ -57,6 +57,9 @@ const zh = {
   'config.sysStatus': '系统状态',
   'config.enabled': '开启（接受申请）',
   'config.disabled': '关闭（暂停受理）',
+  'config.fullLoss': '全损计算',
+  'config.fullLossOn': '开启（船体 + 装备）',
+  'config.fullLossOff': '关闭（仅船体）',
   'config.saved': '✅ 配置已保存',
   'config.saveFailed': '保存失败：',
 

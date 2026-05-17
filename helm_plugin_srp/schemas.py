@@ -16,6 +16,7 @@ class SrpConfigResponse(BaseModel):
     enabled: bool
     min_loss_value: float
     eligible_ship_groups: list[int]
+    full_loss: bool
 
 
 class SrpConfigUpdateRequest(BaseModel):
@@ -25,6 +26,7 @@ class SrpConfigUpdateRequest(BaseModel):
     enabled: bool | None = None
     min_loss_value: float | None = None
     eligible_ship_groups: list[int] | None = None
+    full_loss: bool | None = None
 
     @field_validator("price_order_type")
     @classmethod

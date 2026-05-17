@@ -45,6 +45,7 @@ export interface SrpConfig {
   coefficient: number
   enabled: boolean
   min_loss_value: number
+  full_loss: boolean
 }
 
 export interface KillmailItem {

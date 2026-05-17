@@ -141,6 +141,8 @@ async def update_config(
         updates["min_loss_value"] = str(body.min_loss_value)
     if body.eligible_ship_groups is not None:
         updates["eligible_ship_groups"] = json.dumps(body.eligible_ship_groups)
+    if body.full_loss is not None:
+        updates["full_loss"] = "true" if body.full_loss else "false"
 
     for key, val in updates.items():
         await _upsert_config(db, key, val)
@@ -184,8 +186,19 @@ async def preview_killmail(
     except Exception:
         pass
 
-    # 若市场价格存在则用市场价，否则回退到 zkb 原始价
-    base_value = market_price if market_price > 0 else km["loss_value_raw"]
+    # 若开启全损，叠加装备价值
+    items_value = 0.0
+    if cfg["full_loss"]:
+        try:
+            items_value = await price_svc.get_items_value(
+                km.get("items", []),
+                cfg["price_region_id"],
+                cfg["price_order_type"],
+            )
+        except Exception:
+            pass
+
+    base_value = (market_price if market_price > 0 else km["loss_value_raw"]) + items_value
     calculated = price_svc.calculate_srp_value(base_value, cfg["coefficient"])
 
     # 批量从 Helm SDE 缓存获取所有 type 的名称和图标
@@ -273,7 +286,18 @@ async def submit_request(
     except Exception:
         pass
 
-    base_value = market_price if market_price > 0 else km["loss_value_raw"]
+    items_value = 0.0
+    if cfg["full_loss"]:
+        try:
+            items_value = await price_svc.get_items_value(
+                km.get("items", []),
+                cfg["price_region_id"],
+                cfg["price_order_type"],
+            )
+        except Exception:
+            pass
+
+    base_value = (market_price if market_price > 0 else km["loss_value_raw"]) + items_value
     calculated = price_svc.calculate_srp_value(base_value, cfg["coefficient"])
 
     srp = SrpRequest(

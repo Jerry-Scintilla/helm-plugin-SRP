@@ -107,4 +107,5 @@ DEFAULT_CONFIG: dict[str, str] = {
     "enabled":            "true",      # 系统开关
     "min_loss_value":     "0",         # 最低损失 ISK
     "eligible_ship_groups": "[]",      # 允许补损的舰船组 ID，空=全部
+    "full_loss":          "false",     # 是否计算全损（船体+装备）
 }

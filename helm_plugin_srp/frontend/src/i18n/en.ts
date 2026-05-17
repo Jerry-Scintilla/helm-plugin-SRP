@@ -57,6 +57,9 @@ const en = {
   'config.sysStatus': 'System Status',
   'config.enabled': 'Enabled (accepting requests)',
   'config.disabled': 'Disabled (suspended)',
+  'config.fullLoss': 'Full Loss',
+  'config.fullLossOn': 'Enabled (hull + fittings)',
+  'config.fullLossOff': 'Disabled (hull only)',
   'config.saved': '✅ Config saved',
   'config.saveFailed': 'Save failed: ',
 
