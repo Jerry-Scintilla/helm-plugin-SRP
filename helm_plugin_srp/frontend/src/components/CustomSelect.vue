@@ -126,27 +126,28 @@ onUnmounted(() => {
   justify-content: space-between;
   width: 100%;
   padding: 7px 10px 7px 10px;
-  background: #2a2a28;
-  border: 1px solid #3e3d38;
-  border-radius: 4px;
-  color: #c0bfb8;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-body);
+  font-family: var(--font-sans);
   font-size: .88rem;
   cursor: pointer;
   user-select: none;
   transition: border-color .15s;
   min-height: 36px;
 }
-.csel:hover { border-color: #58574f; }
-.csel--open { border-color: #b8934a; outline: none; }
+.csel:hover { border-color: var(--text-dim); }
+.csel--open { border-color: var(--focus); box-shadow: 0 0 0 3px rgba(56,152,236,.15); outline: none; }
 .csel--disabled { opacity: .45; cursor: not-allowed; pointer-events: none; }
 
 .csel-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.csel-label--placeholder { color: #5a5950; }
+.csel-label--placeholder { color: var(--text-dim); }
 
 .csel-arrow {
   flex-shrink: 0;
   margin-left: 8px;
-  color: #7a796f;
+  color: var(--text-muted);
   transition: transform .18s ease;
 }
 .csel-arrow--up { transform: rotate(180deg); }
@@ -156,9 +157,9 @@ onUnmounted(() => {
 <style>
 .csel-dropdown {
   z-index: 2000;
-  background: #1e1e1c;
-  border: 1px solid #3a3930;
-  border-radius: 5px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   overflow-y: auto;
   box-shadow: 0 8px 24px rgba(0, 0, 0, .55);
   animation: csel-fade .1s ease;
@@ -170,22 +171,23 @@ onUnmounted(() => {
 .csel-option {
   padding: 8px 12px;
   font-size: .88rem;
-  color: #a8a79e;
+  font-family: var(--font-sans);
+  color: var(--text-body);
   cursor: pointer;
   border-left: 2px solid transparent;
   transition: background .12s, color .12s;
 }
 .csel-option:hover {
   background: rgba(255, 255, 255, .05);
-  color: #e0ddd4;
+  color: var(--text-primary);
 }
 .csel-option--selected {
-  color: #f0ece0;
-  border-left-color: #b8934a;
-  background: rgba(184, 147, 74, .08);
+  color: var(--text-primary);
+  border-left-color: var(--brand);
+  background: rgba(201, 100, 66, .08);
 }
 .csel-option--disabled {
-  color: #3e3d38;
+  color: var(--text-dim);
   cursor: default;
 }
 </style>
