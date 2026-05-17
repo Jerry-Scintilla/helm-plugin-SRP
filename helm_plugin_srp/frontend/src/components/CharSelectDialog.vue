@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 import type { Character } from '@/api'
+import CustomSelect, { type SelectOption } from '@/components/CustomSelect.vue'
 
 const props = defineProps<{ visible: boolean; characters: Character[] }>()
 const emit = defineEmits<{ confirm: [charId: number]; cancel: [] }>()
@@ -11,6 +12,10 @@ watch(() => props.visible, (v) => {
     selected.value = props.characters[0].value
   }
 })
+
+const charOptions = computed((): SelectOption[] =>
+  props.characters.map(c => ({ value: c.value, label: c.label }))
+)
 
 function handleConfirm() {
   if (!selected.value) return
@@ -29,9 +34,7 @@ function handleCancel() {
         <div class="dialog-body">
           <div class="form-group">
             <label>角色</label>
-            <select v-model="selected">
-              <option v-for="c in characters" :key="c.value" :value="c.value">{{ c.label }}</option>
-            </select>
+            <CustomSelect v-model="selected" :options="charOptions" />
           </div>
         </div>
         <div class="dialog-footer">

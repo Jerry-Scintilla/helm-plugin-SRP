@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { api, type MyPapFleetItem, type FleetKillItem, type Character } from '@/api'
 import { useAlertDialog } from '@/composables/useAlertDialog'
 import CharSelectDialog from '@/components/CharSelectDialog.vue'
+import CustomSelect, { type SelectOption } from '@/components/CustomSelect.vue'
 
 const { showAlert } = useAlertDialog()
 
@@ -26,6 +27,14 @@ const charDialogVisible = ref(false)
 const selectedFleet = computed(() =>
   papFleets.value.find(f => f.fleet_action_id === selectedFleetId.value) ?? null
 )
+
+const fleetOptions = computed((): SelectOption[] => [
+  { value: null, label: '— 请选择舰队 —' },
+  ...papFleets.value.map(f => ({
+    value: f.fleet_action_id,
+    label: `${f.fleet_action_name}  (${fmtDate(f.window_start)})`,
+  })),
+])
 const submittable = computed(() =>
   kills.value.filter(k => !k.already_submitted)
 )
@@ -42,8 +51,8 @@ async function loadFleets() {
   }
 }
 
-async function onFleetChange(val: string) {
-  selectedFleetId.value = val ? parseInt(val) : null
+async function onFleetChange(val: string | number | boolean | null) {
+  selectedFleetId.value = typeof val === 'number' ? val : null
   kills.value = []
   selectedIndices.value.clear()
   submitMsg.value = ''
@@ -156,15 +165,11 @@ onMounted(loadFleets)
     <template v-else>
       <!-- Fleet selector -->
       <div class="pap-select-bar">
-        <select
-          :value="selectedFleetId ?? ''"
-          @change="onFleetChange(($event.target as HTMLSelectElement).value)"
-        >
-          <option value="">— 请选择舰队 —</option>
-          <option v-for="f in papFleets" :key="f.fleet_action_id" :value="f.fleet_action_id">
-            {{ f.fleet_action_name }} ({{ fmtDate(f.window_start) }})
-          </option>
-        </select>
+        <CustomSelect
+          :model-value="selectedFleetId"
+          :options="fleetOptions"
+          @change="onFleetChange"
+        />
         <button class="btn btn-secondary btn-sm" @click="refreshFleets">刷新列表</button>
       </div>
 

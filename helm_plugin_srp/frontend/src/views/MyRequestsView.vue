@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { api, type SrpRequest, type KillmailPreview, type Character } from '@/api'
 import { useHelmSdk } from '@/composables/useHelmSdk'
 import { useAlertDialog } from '@/composables/useAlertDialog'
 import RequestTable from '@/components/RequestTable.vue'
 import KillmailDetailModal from '@/components/KillmailDetailModal.vue'
+import CustomSelect, { type SelectOption } from '@/components/CustomSelect.vue'
 
 const sdk = useHelmSdk()
 const { showAlert } = useAlertDialog()
@@ -23,6 +24,10 @@ const submitLoading = ref(false)
 const characters = ref<Character[]>([])
 const selectedCharId = ref<number | null>(null)
 const notes = ref('')
+
+const charOptions = computed((): SelectOption[] =>
+  characters.value.map(c => ({ value: c.value, label: c.label }))
+)
 
 const detailRequestId = ref<number | null>(null)
 
@@ -124,10 +129,11 @@ onMounted(loadRequests)
       </div>
       <div class="form-group">
         <label>使用角色</label>
-        <select v-model="selectedCharId">
-          <option v-for="c in characters" :key="c.value" :value="c.value">{{ c.label }}</option>
-          <option v-if="characters.length === 0" :value="null" disabled>加载角色列表…</option>
-        </select>
+        <CustomSelect
+          v-model="selectedCharId"
+          :options="charOptions"
+          :placeholder="charOptions.length === 0 ? '加载角色列表…' : '请选择角色'"
+        />
       </div>
       <div class="form-group">
         <label>备注（可选）</label>

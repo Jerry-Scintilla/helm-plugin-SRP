@@ -2,6 +2,16 @@
 import { ref, onMounted } from 'vue'
 import { api, type SrpConfig } from '@/api'
 import { useAlertDialog } from '@/composables/useAlertDialog'
+import CustomSelect from '@/components/CustomSelect.vue'
+
+const ORDER_TYPE_OPTIONS = [
+  { value: 'buy',  label: '买单价（Buy Order）' },
+  { value: 'sell', label: '卖单价（Sell Order）' },
+]
+const ENABLED_OPTIONS = [
+  { value: true,  label: '开启（接受申请）' },
+  { value: false, label: '关闭（暂停受理）' },
+]
 
 const { showAlert } = useAlertDialog()
 
@@ -61,10 +71,7 @@ onMounted(loadConfig)
 
         <div class="form-group">
           <label>订单类型</label>
-          <select v-model="config.price_order_type">
-            <option value="buy">买单价（Buy Order）</option>
-            <option value="sell">卖单价（Sell Order）</option>
-          </select>
+          <CustomSelect v-model="config.price_order_type" :options="ORDER_TYPE_OPTIONS" />
         </div>
 
         <div class="form-group">
@@ -79,10 +86,7 @@ onMounted(loadConfig)
 
         <div class="form-group">
           <label>系统状态</label>
-          <select v-model="config.enabled">
-            <option :value="true">开启（接受申请）</option>
-            <option :value="false">关闭（暂停受理）</option>
-          </select>
+          <CustomSelect v-model="config.enabled" :options="ENABLED_OPTIONS" />
         </div>
       </div>
 
