@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { api, type MyPapFleetItem, type FleetKillItem, type Character } from '@/api'
+import { useI18n } from '@/i18n'
 import { useAlertDialog } from '@/composables/useAlertDialog'
 import CharSelectDialog from '@/components/CharSelectDialog.vue'
 import CustomSelect, { type SelectOption } from '@/components/CustomSelect.vue'
 
+const { t, fmtDate, isk } = useI18n()
 const { showAlert } = useAlertDialog()
 
 const papFleets = ref<MyPapFleetItem[]>([])
@@ -29,7 +31,7 @@ const selectedFleet = computed(() =>
 )
 
 const fleetOptions = computed((): SelectOption[] => [
-  { value: null, label: '— 请选择舰队 —' },
+  { value: null, label: t('pap.selectFleet') },
   ...papFleets.value.map(f => ({
     value: f.fleet_action_id,
     label: `${f.fleet_action_name}  (${fmtDate(f.window_start)})`,
@@ -94,10 +96,10 @@ function toggleAll(checked: boolean) {
 }
 
 async function onBatchSubmit() {
-  if (selectedIndices.value.size === 0) { await showAlert('请先选择要提交的损失记录'); return }
+  if (selectedIndices.value.size === 0) { await showAlert(t('kills.noSelection')); return }
   if (batchLoading.value) return
   characters.value = await api.getCharacters()
-  if (characters.value.length === 0) { await showAlert('未找到可用角色，请联系管理员绑定角色'); return }
+  if (characters.value.length === 0) { await showAlert(t('kills.noChars')); return }
   if (characters.value.length === 1) {
     await doSubmit(characters.value[0].value)
   } else {
@@ -132,7 +134,7 @@ async function doSubmit(charId: number) {
   selectedIndices.value.clear()
   batchLoading.value = false
   submitMsgOk.value = errors.length === 0
-  submitMsg.value = `✅ 成功提交 ${ok} 条` + (errors.length ? '\n' + errors.join('\n') : '')
+  submitMsg.value = t('kills.submitSuccess', { ok }) + (errors.length ? '\n' + errors.join('\n') : '')
 }
 
 async function refreshFleets() {
@@ -143,24 +145,16 @@ async function refreshFleets() {
   await loadFleets()
 }
 
-function fmtDate(s: string | null | undefined): string {
-  if (!s) return '—'
-  return new Date(s).toLocaleString('zh-CN', { hour12: false })
-}
-function isk(v: number): string {
-  return v.toLocaleString('zh-CN', { maximumFractionDigits: 0 }) + ' ISK'
-}
-
 onMounted(loadFleets)
 </script>
 
 <template>
   <div>
-    <h2>PAP 舰队补损</h2>
+    <h2>{{ t('pap.title') }}</h2>
 
-    <p v-if="fleetsLoading" class="loading">加载 PAP 记录中…</p>
-    <p v-else-if="fleetsError" class="empty" style="color:#e06060">无法加载 PAP 记录：{{ fleetsError }}</p>
-    <p v-else-if="papFleets.length === 0" class="empty">未找到您的 PAP 记录</p>
+    <p v-if="fleetsLoading" class="loading">{{ t('pap.loading') }}</p>
+    <p v-else-if="fleetsError" class="empty" style="color:#e06060">{{ t('pap.loadFailed') }}{{ fleetsError }}</p>
+    <p v-else-if="papFleets.length === 0" class="empty">{{ t('pap.noRecords') }}</p>
 
     <template v-else>
       <!-- Fleet selector -->
@@ -170,47 +164,47 @@ onMounted(loadFleets)
           :options="fleetOptions"
           @change="onFleetChange"
         />
-        <button class="btn btn-secondary btn-sm" @click="refreshFleets">刷新列表</button>
+        <button class="btn btn-secondary btn-sm" @click="refreshFleets">{{ t('pap.refresh') }}</button>
       </div>
 
       <!-- Selected fleet info -->
       <div v-if="selectedFleet" class="fleet-header">
         <h3>
           {{ selectedFleet.fleet_action_name }}
-          <span v-if="selectedFleet.status === 'active'" class="pap-badge-active">⚡ 进行中</span>
-          <span v-else class="pap-badge-ended">已结束</span>
+          <span v-if="selectedFleet.status === 'active'" class="pap-badge-active">{{ t('pap.active') }}</span>
+          <span v-else class="pap-badge-ended">{{ t('pap.ended') }}</span>
         </h3>
         <div class="window">
-          活动时间：{{ fmtDate(selectedFleet.window_start) }} →
-          {{ selectedFleet.window_end ? fmtDate(selectedFleet.window_end) : '进行中' }}
+          {{ t('pap.windowTime') }}{{ fmtDate(selectedFleet.window_start) }} →
+          {{ selectedFleet.window_end ? fmtDate(selectedFleet.window_end) : t('pap.ongoing') }}
         </div>
         <div class="window" style="margin-top:2px">
-          PAP 获得时间：{{ fmtDate(selectedFleet.pap_issued_at) }}
+          {{ t('pap.papIssuedAt') }}{{ fmtDate(selectedFleet.pap_issued_at) }}
         </div>
       </div>
 
       <!-- No fleet selected -->
-      <p v-if="!selectedFleetId" class="empty" style="padding-top:32px">请从上方下拉列表选择一场舰队</p>
+      <p v-if="!selectedFleetId" class="empty" style="padding-top:32px">{{ t('pap.pleaseSelect') }}</p>
 
       <!-- Kills loading -->
-      <p v-else-if="killsLoading" class="loading">正在拉取该舰队期间的损失记录…</p>
-      <p v-else-if="killsError" class="empty" style="color:#e06060">加载损失记录失败：{{ killsError }}</p>
-      <p v-else-if="kills.length === 0" class="empty">在此舰队活动期间未找到您的损失记录</p>
+      <p v-else-if="killsLoading" class="loading">{{ t('pap.loadingKills') }}</p>
+      <p v-else-if="killsError" class="empty" style="color:#e06060">{{ t('pap.killsLoadFailed') }}{{ killsError }}</p>
+      <p v-else-if="kills.length === 0" class="empty">{{ t('kills.noKills') }}</p>
 
       <!-- Kills table -->
       <template v-else>
         <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <button class="btn btn-secondary btn-sm" @click="selectAll">全选</button>
-          <button class="btn btn-secondary btn-sm" @click="clearAll">取消全选</button>
+          <button class="btn btn-secondary btn-sm" @click="selectAll">{{ t('kills.selectAll') }}</button>
+          <button class="btn btn-secondary btn-sm" @click="clearAll">{{ t('kills.clearAll') }}</button>
           <span style="font-size:.85rem;color:#7a796f">
-            共 {{ kills.length }} 条，其中 {{ submittable.length }} 条未提交
+            {{ t('kills.count', { total: kills.length, submittable: submittable.length }) }}
           </span>
           <button
             class="btn btn-primary"
             style="margin-left:auto"
             :disabled="batchLoading || selectedIndices.size === 0"
             @click="onBatchSubmit"
-          >{{ batchLoading ? '⏳ 提交中…' : '批量提交所选' }}</button>
+          >{{ batchLoading ? t('kills.submitting') : t('kills.batchSubmit') }}</button>
         </div>
 
         <table>
@@ -219,7 +213,11 @@ onMounted(loadFleets)
               <th class="checkbox-col">
                 <input type="checkbox" @change="toggleAll(($event.target as HTMLInputElement).checked)" />
               </th>
-              <th>舰船</th><th>损失时间</th><th>损失价值</th><th>预计补损</th><th>状态</th>
+              <th>{{ t('kills.colShip') }}</th>
+              <th>{{ t('kills.colTime') }}</th>
+              <th>{{ t('kills.colLoss') }}</th>
+              <th>{{ t('kills.colSrp') }}</th>
+              <th>{{ t('kills.colStatus') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -242,8 +240,8 @@ onMounted(loadFleets)
               <td class="isk">{{ isk(k.loss_value_raw) }}</td>
               <td class="isk"><strong>{{ isk(k.calculated_value) }}</strong></td>
               <td>
-                <span v-if="k.already_submitted" class="badge badge-approved">已提交</span>
-                <span v-else class="badge badge-pending">未提交</span>
+                <span v-if="k.already_submitted" class="badge badge-approved">{{ t('kills.submitted') }}</span>
+                <span v-else class="badge badge-pending">{{ t('kills.notSubmitted') }}</span>
               </td>
             </tr>
           </tbody>

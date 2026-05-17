@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import type { SrpStatus } from '@/api'
+import { useI18n } from '@/i18n'
 defineProps<{ status: SrpStatus }>()
-const labels: Record<SrpStatus, string> = {
-  pending:  '⏳ 待审核',
-  approved: '✅ 已批准',
-  rejected: '❌ 已拒绝',
-  paid:     '💰 已付款',
-}
+const { t } = useI18n()
 </script>
 
 <template>
-  <span class="badge" :class="`badge-${status}`">{{ labels[status] }}</span>
+  <span class="badge" :class="`badge-${status}`">{{
+    status === 'pending'  ? t('status.pending')  :
+    status === 'approved' ? t('status.approved') :
+    status === 'rejected' ? t('status.rejected') :
+                            t('status.paid')
+  }}</span>
 </template>

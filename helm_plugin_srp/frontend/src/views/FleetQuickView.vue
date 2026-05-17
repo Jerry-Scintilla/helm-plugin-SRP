@@ -2,10 +2,12 @@
 import { ref, computed, onMounted } from 'vue'
 import { api, type FleetKillItem, type FleetKillsResponse, type Character } from '@/api'
 import { useHelmSdk } from '@/composables/useHelmSdk'
+import { useI18n } from '@/i18n'
 import { useAlertDialog } from '@/composables/useAlertDialog'
 import CharSelectDialog from '@/components/CharSelectDialog.vue'
 
 const sdk = useHelmSdk()
+const { t, fmtDate, isk } = useI18n()
 const { showAlert } = useAlertDialog()
 
 const fleetInfo = ref<Omit<FleetKillsResponse, 'items'> | null>(null)
@@ -59,10 +61,10 @@ function toggleAll(checked: boolean) {
 }
 
 async function onBatchSubmit() {
-  if (selectedIndices.value.size === 0) { await showAlert('请先选择要提交的损失记录'); return }
+  if (selectedIndices.value.size === 0) { await showAlert(t('kills.noSelection')); return }
   if (batchLoading.value) return
   characters.value = await api.getCharacters()
-  if (characters.value.length === 0) { await showAlert('未找到可用角色，请联系管理员绑定角色'); return }
+  if (characters.value.length === 0) { await showAlert(t('kills.noChars')); return }
   if (characters.value.length === 1) {
     await doSubmit(characters.value[0].value)
   } else {
@@ -97,15 +99,7 @@ async function doSubmit(charId: number) {
   selectedIndices.value.clear()
   batchLoading.value = false
   submitMsgOk.value = errors.length === 0
-  submitMsg.value = `✅ 成功提交 ${ok} 条` + (errors.length ? '\n' + errors.join('\n') : '')
-}
-
-function fmtDate(s: string | null | undefined): string {
-  if (!s) return '—'
-  return new Date(s).toLocaleString('zh-CN', { hour12: false })
-}
-function isk(v: number): string {
-  return v.toLocaleString('zh-CN', { maximumFractionDigits: 0 }) + ' ISK'
+  submitMsg.value = t('kills.submitSuccess', { ok }) + (errors.length ? '\n' + errors.join('\n') : '')
 }
 
 onMounted(loadKills)
@@ -113,32 +107,32 @@ onMounted(loadKills)
 
 <template>
   <div>
-    <p v-if="loading" class="loading">正在拉取舰队期间的损失记录，请稍候…</p>
-    <p v-else-if="loadError" class="empty" style="color:#e06060">加载失败：{{ loadError }}</p>
+    <p v-if="loading" class="loading">{{ t('fleet.loading') }}</p>
+    <p v-else-if="loadError" class="empty" style="color:#e06060">{{ t('common.loadFailed') }}{{ loadError }}</p>
 
     <template v-else-if="fleetInfo">
       <div class="fleet-header">
         <h3>⚡ {{ fleetInfo.fleet_action_name }}</h3>
         <div class="window">
-          活动时间：{{ fmtDate(fleetInfo.window_start) }} → {{ fmtDate(fleetInfo.window_end) }}
+          {{ t('fleet.windowTime') }}{{ fmtDate(fleetInfo.window_start) }} → {{ fmtDate(fleetInfo.window_end) }}
         </div>
       </div>
 
-      <p v-if="kills.length === 0" class="empty">在此舰队活动期间未找到您的损失记录</p>
+      <p v-if="kills.length === 0" class="empty">{{ t('kills.noKills') }}</p>
 
       <template v-else>
         <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <button class="btn btn-secondary btn-sm" @click="selectAll">全选</button>
-          <button class="btn btn-secondary btn-sm" @click="clearAll">取消全选</button>
+          <button class="btn btn-secondary btn-sm" @click="selectAll">{{ t('kills.selectAll') }}</button>
+          <button class="btn btn-secondary btn-sm" @click="clearAll">{{ t('kills.clearAll') }}</button>
           <span style="font-size:.85rem;color:#7a796f">
-            共 {{ kills.length }} 条，其中 {{ submittable.length }} 条未提交
+            {{ t('kills.count', { total: kills.length, submittable: submittable.length }) }}
           </span>
           <button
             class="btn btn-primary"
             style="margin-left:auto"
             :disabled="batchLoading || selectedIndices.size === 0"
             @click="onBatchSubmit"
-          >{{ batchLoading ? '⏳ 提交中…' : '批量提交所选' }}</button>
+          >{{ batchLoading ? t('kills.submitting') : t('kills.batchSubmit') }}</button>
         </div>
 
         <table>
@@ -147,7 +141,11 @@ onMounted(loadKills)
               <th class="checkbox-col">
                 <input type="checkbox" @change="toggleAll(($event.target as HTMLInputElement).checked)" />
               </th>
-              <th>舰船</th><th>损失时间</th><th>损失价值</th><th>预计补损</th><th>状态</th>
+              <th>{{ t('kills.colShip') }}</th>
+              <th>{{ t('kills.colTime') }}</th>
+              <th>{{ t('kills.colLoss') }}</th>
+              <th>{{ t('kills.colSrp') }}</th>
+              <th>{{ t('kills.colStatus') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -170,8 +168,8 @@ onMounted(loadKills)
               <td class="isk">{{ isk(k.loss_value_raw) }}</td>
               <td class="isk"><strong>{{ isk(k.calculated_value) }}</strong></td>
               <td>
-                <span v-if="k.already_submitted" class="badge badge-approved">已提交</span>
-                <span v-else class="badge badge-pending">未提交</span>
+                <span v-if="k.already_submitted" class="badge badge-approved">{{ t('kills.submitted') }}</span>
+                <span v-else class="badge badge-pending">{{ t('kills.notSubmitted') }}</span>
               </td>
             </tr>
           </tbody>

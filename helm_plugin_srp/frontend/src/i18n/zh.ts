@@ -1,0 +1,158 @@
+const zh = {
+  // App
+  'app.initializing': '正在初始化…',
+  'app.tab.pap': '🏅 PAP 舰队补损',
+  'app.tab.fleet': '⚡ 舰队快速提交',
+  'app.tab.mine': '📋 我的申请',
+  'app.tab.review': '🛡️ 补损管理',
+  'app.tab.config': '⚙️ 配置',
+  'app.permLoadFailed': '权限加载失败：',
+
+  // Common
+  'common.loading': '加载中…',
+  'common.loadFailed': '加载失败：',
+  'common.opFailed': '操作失败：',
+  'common.refresh': '↻ 刷新',
+  'common.save': '保存配置',
+  'common.saving': '⏳ 保存中…',
+  'common.cancel': '取消',
+  'common.confirm': '确认',
+  'common.close': '关闭',
+
+  // Status
+  'status.all': '全部状态',
+  'status.pending': '⏳ 待审核',
+  'status.approved': '✅ 已批准',
+  'status.rejected': '❌ 已拒绝',
+  'status.paid': '💰 已付款',
+
+  // Table
+  'table.character': '角色',
+  'table.ship': '舰船',
+  'table.loss': '损失',
+  'table.srpAmount': '补损金额',
+  'table.status': '状态',
+  'table.submitTime': '提交时间',
+  'table.actions': '操作',
+  'table.approve': '批准',
+  'table.reject': '拒绝',
+  'table.markPaid': '标记已付款',
+  'table.detail': '详情',
+
+  // Manage
+  'manage.title': '补损管理',
+  'manage.total': '{n} 条',
+  'manage.noPending': '没有待审核的申请 🎉',
+  'manage.noMatch': '暂无符合条件的申请',
+
+  // Config
+  'config.title': '补损配置',
+  'config.regionId': '价格星域 ID（Region ID）',
+  'config.regionHint': '10000002=Jita / 10000043=Amarr',
+  'config.orderType': '订单类型',
+  'config.orderTypeBuy': '买单价（Buy Order）',
+  'config.orderTypeSell': '卖单价（Sell Order）',
+  'config.coefficient': '价值系数（0.0 ~ 2.0）',
+  'config.minLoss': '最低损失（ISK）',
+  'config.sysStatus': '系统状态',
+  'config.enabled': '开启（接受申请）',
+  'config.disabled': '关闭（暂停受理）',
+  'config.saved': '✅ 配置已保存',
+  'config.saveFailed': '保存失败：',
+
+  // My Requests
+  'myreq.title': '我的补损申请',
+  'myreq.newRequest': '＋ 提交新申请',
+  'myreq.hideForm': '× 收起表单',
+  'myreq.formTitle': '提交补损申请',
+  'myreq.esiUrl': 'ESI Killmail 链接',
+  'myreq.esiUrlPh': 'https://esi.evetech.net/killmails/123456789/abc123def…',
+  'myreq.character': '使用角色',
+  'myreq.charLoading': '加载角色列表…',
+  'myreq.charPlaceholder': '请选择角色',
+  'myreq.notes': '备注（可选）',
+  'myreq.notesPh': '如：在 X 舰队活动期间损失',
+  'myreq.preview': '预览补损金额',
+  'myreq.previewing': '⏳ 查询中…',
+  'myreq.previewFailed': '预览失败：',
+  'myreq.noUrl': '请填写 ESI Killmail 链接',
+  'myreq.noChar': '请选择角色',
+  'myreq.lossRaw': '原始损失：',
+  'myreq.priceSource': '价格来源：',
+  'myreq.coefficient': '系数：',
+  'myreq.items': '损毁物品 ({n})',
+  'myreq.destroyed': '×{n} 损毁',
+  'myreq.dropped': '×{n} 掉落',
+  'myreq.ineligible': '⚠ 不符合补损资格：',
+  'myreq.submit': '确认提交',
+  'myreq.submitting': '⏳ 提交中…',
+  'myreq.submitFailed': '提交失败：',
+  'myreq.noRequests': '暂无申请记录',
+
+  // Killmail detail modal
+  'detail.title': '击杀详情',
+  'detail.loadFailed': '加载失败：',
+  'detail.srpAmount': '补损金额',
+  'detail.lossRaw': '原始损失',
+  'detail.notes': '备注',
+  'detail.officerNotes': '审核备注',
+  'detail.itemsHeader': '损毁物品',
+  'detail.items': '损毁物品 ({n})',
+  'detail.noItems': '暂无物品数据',
+  'detail.destroyed': '×{n} 损毁',
+  'detail.dropped': '×{n} 掉落',
+
+  // Kill list (shared by PAP and Fleet views)
+  'kills.noKills': '在此舰队活动期间未找到您的损失记录',
+  'kills.selectAll': '全选',
+  'kills.clearAll': '取消全选',
+  'kills.count': '共 {total} 条，其中 {submittable} 条未提交',
+  'kills.batchSubmit': '批量提交所选',
+  'kills.submitting': '⏳ 提交中…',
+  'kills.submitSuccess': '✅ 成功提交 {ok} 条',
+  'kills.noSelection': '请先选择要提交的损失记录',
+  'kills.noChars': '未找到可用角色，请联系管理员绑定角色',
+  'kills.colShip': '舰船',
+  'kills.colTime': '损失时间',
+  'kills.colLoss': '损失价值',
+  'kills.colSrp': '预计补损',
+  'kills.colStatus': '状态',
+  'kills.submitted': '已提交',
+  'kills.notSubmitted': '未提交',
+
+  // PAP Fleet view
+  'pap.title': 'PAP 舰队补损',
+  'pap.loading': '加载 PAP 记录中…',
+  'pap.loadFailed': '无法加载 PAP 记录：',
+  'pap.noRecords': '未找到您的 PAP 记录',
+  'pap.selectFleet': '— 请选择舰队 —',
+  'pap.refresh': '刷新列表',
+  'pap.active': '⚡ 进行中',
+  'pap.ended': '已结束',
+  'pap.windowTime': '活动时间：',
+  'pap.papIssuedAt': 'PAP 获得时间：',
+  'pap.ongoing': '进行中',
+  'pap.pleaseSelect': '请从上方下拉列表选择一场舰队',
+  'pap.loadingKills': '正在拉取该舰队期间的损失记录…',
+  'pap.killsLoadFailed': '加载损失记录失败：',
+
+  // Fleet quick view
+  'fleet.loading': '正在拉取舰队期间的损失记录，请稍候…',
+  'fleet.windowTime': '活动时间：',
+
+  // Reject dialog
+  'reject.title': '拒绝补损申请',
+  'reject.reason': '拒绝理由（可选）',
+  'reject.reasonPh': '请输入拒绝理由…',
+  'reject.confirm': '确认拒绝',
+
+  // Char select dialog
+  'charselect.title': '选择提交角色',
+  'charselect.label': '角色',
+
+  // Alert dialog
+  'alert.title': '提示',
+  'alert.ok': '确定',
+} as const
+
+export default zh

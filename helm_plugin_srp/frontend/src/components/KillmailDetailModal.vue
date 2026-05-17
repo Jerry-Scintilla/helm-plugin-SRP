@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { api, type SrpRequestDetail } from '@/api'
+import { useI18n } from '@/i18n'
 
 const props = defineProps<{ visible: boolean; requestId: number | null }>()
 const emit = defineEmits<{ close: [] }>()
+const { t, isk } = useI18n()
 
 const detail = ref<SrpRequestDetail | null>(null)
 const loading = ref(false)
@@ -23,10 +25,6 @@ watch(() => props.requestId, async (id) => {
   }
 }, { immediate: true })
 
-function isk(v: number): string {
-  return v.toLocaleString('zh-CN', { maximumFractionDigits: 0 }) + ' ISK'
-}
-
 function onImgError(e: Event) {
   ;(e.target as HTMLImageElement).style.visibility = 'hidden'
 }
@@ -40,13 +38,13 @@ const zkbUrl = (d: SrpRequestDetail) =>
     <div v-if="visible" class="dialog-overlay" @click.self="emit('close')">
       <div class="dialog-box detail-modal">
         <div class="dialog-header">
-          <span>击杀详情</span>
+          <span>{{ t('detail.title') }}</span>
           <button class="btn-close" @click="emit('close')">×</button>
         </div>
 
         <div class="dialog-body">
-          <div v-if="loading" class="loading">加载中…</div>
-          <div v-else-if="error" style="color:#e06060">加载失败：{{ error }}</div>
+          <div v-if="loading" class="loading">{{ t('common.loading') }}</div>
+          <div v-else-if="error" style="color:#e06060">{{ t('detail.loadFailed') }}{{ error }}</div>
 
           <template v-else-if="detail">
             <!-- 舰船信息头 -->
@@ -73,26 +71,26 @@ const zkbUrl = (d: SrpRequestDetail) =>
             <!-- 补损金额 -->
             <div class="detail-section">
               <div class="detail-row">
-                <span class="detail-label">补损金额</span>
+                <span class="detail-label">{{ t('detail.srpAmount') }}</span>
                 <span class="isk detail-value-main">{{ isk(detail.calculated_value) }}</span>
               </div>
               <div class="detail-row">
-                <span class="detail-label">原始损失</span>
+                <span class="detail-label">{{ t('detail.lossRaw') }}</span>
                 <span class="isk">{{ isk(detail.loss_value_raw) }}</span>
               </div>
               <div class="detail-row" v-if="detail.notes">
-                <span class="detail-label">备注</span>
+                <span class="detail-label">{{ t('detail.notes') }}</span>
                 <span>{{ detail.notes }}</span>
               </div>
               <div class="detail-row" v-if="detail.officer_notes">
-                <span class="detail-label">审核备注</span>
+                <span class="detail-label">{{ t('detail.officerNotes') }}</span>
                 <span>{{ detail.officer_notes }}</span>
               </div>
             </div>
 
             <!-- 损毁物品 -->
             <div v-if="detail.items.length" class="items-section">
-              <div class="items-header">损毁物品 ({{ detail.items.length }})</div>
+              <div class="items-header">{{ t('detail.items', { n: detail.items.length }) }}</div>
               <div
                 v-for="item in detail.items"
                 :key="item.type_id"
@@ -108,20 +106,20 @@ const zkbUrl = (d: SrpRequestDetail) =>
                 </div>
                 <span class="item-name">{{ item.name }}</span>
                 <span class="item-qty">
-                  <span v-if="item.qty_destroyed">×{{ item.qty_destroyed }} 损毁</span>
-                  <span v-if="item.qty_dropped" class="dropped"> ×{{ item.qty_dropped }} 掉落</span>
+                  <span v-if="item.qty_destroyed">{{ t('detail.destroyed', { n: item.qty_destroyed }) }}</span>
+                  <span v-if="item.qty_dropped" class="dropped"> {{ t('detail.dropped', { n: item.qty_dropped }) }}</span>
                 </span>
               </div>
             </div>
             <div v-else class="items-section">
-              <div class="items-header">损毁物品</div>
-              <p style="color:#5a5950;font-size:.85rem;margin:4px 0">暂无物品数据</p>
+              <div class="items-header">{{ t('detail.itemsHeader') }}</div>
+              <p style="color:#5a5950;font-size:.85rem;margin:4px 0">{{ t('detail.noItems') }}</p>
             </div>
           </template>
         </div>
 
         <div class="dialog-footer">
-          <button class="btn btn-secondary" @click="emit('close')">关闭</button>
+          <button class="btn btn-secondary" @click="emit('close')">{{ t('common.close') }}</button>
         </div>
       </div>
     </div>

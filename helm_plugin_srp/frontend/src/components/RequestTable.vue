@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { SrpRequest } from '@/api'
+import { useI18n } from '@/i18n'
 import StatusBadge from './StatusBadge.vue'
 
 defineProps<{
@@ -15,26 +16,20 @@ const emit = defineEmits<{
   viewDetail: [id: number]
 }>()
 
-function fmtDate(s: string | null | undefined): string {
-  if (!s) return '—'
-  return new Date(s).toLocaleString('zh-CN', { hour12: false })
-}
-function isk(v: number): string {
-  return v.toLocaleString('zh-CN', { maximumFractionDigits: 0 }) + ' ISK'
-}
+const { t, fmtDate, isk } = useI18n()
 </script>
 
 <template>
   <table>
     <thead>
       <tr>
-        <th v-if="showCharCol">角色</th>
-        <th>舰船</th>
-        <th>损失</th>
-        <th>补损金额</th>
-        <th>状态</th>
-        <th>提交时间</th>
-        <th v-if="showActions || showDetail">操作</th>
+        <th v-if="showCharCol">{{ t('table.character') }}</th>
+        <th>{{ t('table.ship') }}</th>
+        <th>{{ t('table.loss') }}</th>
+        <th>{{ t('table.srpAmount') }}</th>
+        <th>{{ t('table.status') }}</th>
+        <th>{{ t('table.submitTime') }}</th>
+        <th v-if="showActions || showDetail">{{ t('table.actions') }}</th>
       </tr>
     </thead>
     <tbody>
@@ -49,18 +44,18 @@ function isk(v: number): string {
           <div class="action-row">
             <template v-if="showActions">
               <template v-if="r.status === 'pending'">
-                <button class="btn btn-success btn-sm" @click="emit('approve', r.id)">批准</button>
-                <button class="btn btn-danger btn-sm" @click="emit('reject', r.id)">拒绝</button>
+                <button class="btn btn-success btn-sm" @click="emit('approve', r.id)">{{ t('table.approve') }}</button>
+                <button class="btn btn-danger btn-sm" @click="emit('reject', r.id)">{{ t('table.reject') }}</button>
               </template>
               <template v-else-if="r.status === 'approved'">
-                <button class="btn btn-primary btn-sm" @click="emit('markPaid', r.id)">标记已付款</button>
+                <button class="btn btn-primary btn-sm" @click="emit('markPaid', r.id)">{{ t('table.markPaid') }}</button>
               </template>
             </template>
             <button
               v-if="showDetail"
               class="btn btn-secondary btn-sm"
               @click="emit('viewDetail', r.id)"
-            >详情</button>
+            >{{ t('table.detail') }}</button>
             <template v-if="showActions && r.status !== 'pending' && r.status !== 'approved'">
               <span style="color:#5a5950;font-size:.8rem">—</span>
             </template>

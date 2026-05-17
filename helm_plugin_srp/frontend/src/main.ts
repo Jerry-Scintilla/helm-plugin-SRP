@@ -1,6 +1,7 @@
 import { createApp, nextTick } from 'vue'
 import App from './App.vue'
 import { initSDK, updateToken } from './api'
+import { setLocale } from './i18n'
 import './style.css'
 
 declare const HelmSDK: any
@@ -16,8 +17,9 @@ function loadScript(src: string): Promise<void> {
 }
 
 loadScript('/plugin-sdk/helm-sdk.js').then(() => {
-  HelmSDK.init((ctx: { token: string; apiBase: string }) => {
+  HelmSDK.init((ctx: { token: string; apiBase: string; locale?: string }) => {
     initSDK(ctx.token, ctx.apiBase)
+    setLocale(HelmSDK.getLocale())
 
     window.addEventListener('message', (e: MessageEvent) => {
       if (e.data?.type === 'helm:token:refreshed') {

@@ -1,18 +1,11 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { api, type SrpConfig } from '@/api'
+import { useI18n } from '@/i18n'
 import { useAlertDialog } from '@/composables/useAlertDialog'
 import CustomSelect from '@/components/CustomSelect.vue'
 
-const ORDER_TYPE_OPTIONS = [
-  { value: 'buy',  label: '买单价（Buy Order）' },
-  { value: 'sell', label: '卖单价（Sell Order）' },
-]
-const ENABLED_OPTIONS = [
-  { value: true,  label: '开启（接受申请）' },
-  { value: false, label: '关闭（暂停受理）' },
-]
-
+const { t } = useI18n()
 const { showAlert } = useAlertDialog()
 
 const config = ref<SrpConfig | null>(null)
@@ -40,10 +33,10 @@ async function onSave() {
   saveMsg.value = ''
   try {
     await api.updateConfig(config.value)
-    saveMsg.value = '✅ 配置已保存'
+    saveMsg.value = t('config.saved')
     saveMsgOk.value = true
   } catch (e) {
-    saveMsg.value = '保存失败：' + (e as Error).message
+    saveMsg.value = t('config.saveFailed') + (e as Error).message
     saveMsgOk.value = false
     await showAlert(saveMsg.value)
   } finally {
@@ -56,42 +49,54 @@ onMounted(loadConfig)
 
 <template>
   <div>
-    <h2>补损配置</h2>
+    <h2>{{ t('config.title') }}</h2>
 
-    <p v-if="loading" class="loading">加载中…</p>
-    <p v-else-if="loadError" class="empty" style="color:#e06060">加载失败：{{ loadError }}</p>
+    <p v-if="loading" class="loading">{{ t('common.loading') }}</p>
+    <p v-else-if="loadError" class="empty" style="color:#e06060">{{ t('common.loadFailed') }}{{ loadError }}</p>
 
     <template v-else-if="config">
       <div class="config-grid">
         <div class="form-group">
-          <label>价格星域 ID（Region ID）</label>
+          <label>{{ t('config.regionId') }}</label>
           <input v-model.number="config.price_region_id" type="number" />
-          <div style="font-size:.78rem;color:#5a5950;margin-top:4px">10000002=Jita / 10000043=Amarr</div>
+          <div style="font-size:.78rem;color:#5a5950;margin-top:4px">{{ t('config.regionHint') }}</div>
         </div>
 
         <div class="form-group">
-          <label>订单类型</label>
-          <CustomSelect v-model="config.price_order_type" :options="ORDER_TYPE_OPTIONS" />
+          <label>{{ t('config.orderType') }}</label>
+          <CustomSelect
+            v-model="config.price_order_type"
+            :options="[
+              { value: 'buy',  label: t('config.orderTypeBuy') },
+              { value: 'sell', label: t('config.orderTypeSell') },
+            ]"
+          />
         </div>
 
         <div class="form-group">
-          <label>价值系数（0.0 ~ 2.0）</label>
+          <label>{{ t('config.coefficient') }}</label>
           <input v-model.number="config.coefficient" type="number" step="0.01" min="0" max="2" />
         </div>
 
         <div class="form-group">
-          <label>最低损失（ISK）</label>
+          <label>{{ t('config.minLoss') }}</label>
           <input v-model.number="config.min_loss_value" type="number" step="1000000" min="0" />
         </div>
 
         <div class="form-group">
-          <label>系统状态</label>
-          <CustomSelect v-model="config.enabled" :options="ENABLED_OPTIONS" />
+          <label>{{ t('config.sysStatus') }}</label>
+          <CustomSelect
+            v-model="config.enabled"
+            :options="[
+              { value: true,  label: t('config.enabled') },
+              { value: false, label: t('config.disabled') },
+            ]"
+          />
         </div>
       </div>
 
       <button class="btn btn-primary" :disabled="saving" @click="onSave">
-        {{ saving ? '⏳ 保存中…' : '保存配置' }}
+        {{ saving ? t('common.saving') : t('common.save') }}
       </button>
       <div v-if="saveMsg" style="margin-top:12px;font-size:.88rem" :style="{ color: saveMsgOk ? '#4caf50' : '#e06060' }">
         {{ saveMsg }}

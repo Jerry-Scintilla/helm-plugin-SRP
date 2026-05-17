@@ -1,0 +1,158 @@
+const en = {
+  // App
+  'app.initializing': 'Initializing…',
+  'app.tab.pap': '🏅 PAP Fleet SRP',
+  'app.tab.fleet': '⚡ Fleet Quick Submit',
+  'app.tab.mine': '📋 My Requests',
+  'app.tab.review': '🛡️ SRP Management',
+  'app.tab.config': '⚙️ Config',
+  'app.permLoadFailed': 'Failed to load permissions: ',
+
+  // Common
+  'common.loading': 'Loading…',
+  'common.loadFailed': 'Load failed: ',
+  'common.opFailed': 'Operation failed: ',
+  'common.refresh': '↻ Refresh',
+  'common.save': 'Save Config',
+  'common.saving': '⏳ Saving…',
+  'common.cancel': 'Cancel',
+  'common.confirm': 'Confirm',
+  'common.close': 'Close',
+
+  // Status
+  'status.all': 'All',
+  'status.pending': '⏳ Pending',
+  'status.approved': '✅ Approved',
+  'status.rejected': '❌ Rejected',
+  'status.paid': '💰 Paid',
+
+  // Table
+  'table.character': 'Character',
+  'table.ship': 'Ship',
+  'table.loss': 'Loss',
+  'table.srpAmount': 'SRP Amount',
+  'table.status': 'Status',
+  'table.submitTime': 'Submitted',
+  'table.actions': 'Actions',
+  'table.approve': 'Approve',
+  'table.reject': 'Reject',
+  'table.markPaid': 'Mark Paid',
+  'table.detail': 'Details',
+
+  // Manage
+  'manage.title': 'SRP Management',
+  'manage.total': '{n} records',
+  'manage.noPending': 'No pending requests 🎉',
+  'manage.noMatch': 'No matching requests',
+
+  // Config
+  'config.title': 'SRP Config',
+  'config.regionId': 'Price Region ID',
+  'config.regionHint': '10000002=Jita / 10000043=Amarr',
+  'config.orderType': 'Order Type',
+  'config.orderTypeBuy': 'Buy Order',
+  'config.orderTypeSell': 'Sell Order',
+  'config.coefficient': 'Coefficient (0.0 ~ 2.0)',
+  'config.minLoss': 'Min Loss (ISK)',
+  'config.sysStatus': 'System Status',
+  'config.enabled': 'Enabled (accepting requests)',
+  'config.disabled': 'Disabled (suspended)',
+  'config.saved': '✅ Config saved',
+  'config.saveFailed': 'Save failed: ',
+
+  // My Requests
+  'myreq.title': 'My SRP Requests',
+  'myreq.newRequest': '＋ New Request',
+  'myreq.hideForm': '× Close Form',
+  'myreq.formTitle': 'Submit SRP Request',
+  'myreq.esiUrl': 'ESI Killmail URL',
+  'myreq.esiUrlPh': 'https://esi.evetech.net/killmails/123456789/abc123def…',
+  'myreq.character': 'Character',
+  'myreq.charLoading': 'Loading characters…',
+  'myreq.charPlaceholder': 'Select character',
+  'myreq.notes': 'Notes (optional)',
+  'myreq.notesPh': 'e.g. lost during X fleet op',
+  'myreq.preview': 'Preview SRP Amount',
+  'myreq.previewing': '⏳ Loading…',
+  'myreq.previewFailed': 'Preview failed: ',
+  'myreq.noUrl': 'Please enter an ESI Killmail URL',
+  'myreq.noChar': 'Please select a character',
+  'myreq.lossRaw': 'Raw Loss: ',
+  'myreq.priceSource': 'Price Source: ',
+  'myreq.coefficient': 'Coefficient: ',
+  'myreq.items': 'Lost Items ({n})',
+  'myreq.destroyed': '×{n} destroyed',
+  'myreq.dropped': '×{n} dropped',
+  'myreq.ineligible': '⚠ Not eligible: ',
+  'myreq.submit': 'Submit',
+  'myreq.submitting': '⏳ Submitting…',
+  'myreq.submitFailed': 'Submit failed: ',
+  'myreq.noRequests': 'No requests yet',
+
+  // Killmail detail modal
+  'detail.title': 'Kill Details',
+  'detail.loadFailed': 'Load failed: ',
+  'detail.srpAmount': 'SRP Amount',
+  'detail.lossRaw': 'Raw Loss',
+  'detail.notes': 'Notes',
+  'detail.officerNotes': 'Officer Notes',
+  'detail.itemsHeader': 'Lost Items',
+  'detail.items': 'Lost Items ({n})',
+  'detail.noItems': 'No item data available',
+  'detail.destroyed': '×{n} destroyed',
+  'detail.dropped': '×{n} dropped',
+
+  // Kill list (shared by PAP and Fleet views)
+  'kills.noKills': 'No losses found during this fleet operation',
+  'kills.selectAll': 'Select All',
+  'kills.clearAll': 'Clear Selection',
+  'kills.count': '{total} total, {submittable} not submitted',
+  'kills.batchSubmit': 'Submit Selected',
+  'kills.submitting': '⏳ Submitting…',
+  'kills.submitSuccess': '✅ Successfully submitted {ok}',
+  'kills.noSelection': 'Please select losses to submit',
+  'kills.noChars': 'No characters found, please contact admin',
+  'kills.colShip': 'Ship',
+  'kills.colTime': 'Time Lost',
+  'kills.colLoss': 'Loss Value',
+  'kills.colSrp': 'Est. SRP',
+  'kills.colStatus': 'Status',
+  'kills.submitted': 'Submitted',
+  'kills.notSubmitted': 'Pending',
+
+  // PAP Fleet view
+  'pap.title': 'PAP Fleet SRP',
+  'pap.loading': 'Loading PAP records…',
+  'pap.loadFailed': 'Failed to load PAP records: ',
+  'pap.noRecords': 'No PAP records found',
+  'pap.selectFleet': '— Select Fleet —',
+  'pap.refresh': 'Refresh',
+  'pap.active': '⚡ Active',
+  'pap.ended': 'Ended',
+  'pap.windowTime': 'Window: ',
+  'pap.papIssuedAt': 'PAP Issued: ',
+  'pap.ongoing': 'ongoing',
+  'pap.pleaseSelect': 'Please select a fleet from the dropdown above',
+  'pap.loadingKills': 'Loading losses for this fleet…',
+  'pap.killsLoadFailed': 'Failed to load losses: ',
+
+  // Fleet quick view
+  'fleet.loading': 'Loading fleet losses, please wait…',
+  'fleet.windowTime': 'Window: ',
+
+  // Reject dialog
+  'reject.title': 'Reject SRP Request',
+  'reject.reason': 'Reason (optional)',
+  'reject.reasonPh': 'Enter rejection reason…',
+  'reject.confirm': 'Confirm Reject',
+
+  // Char select dialog
+  'charselect.title': 'Select Character',
+  'charselect.label': 'Character',
+
+  // Alert dialog
+  'alert.title': 'Notice',
+  'alert.ok': 'OK',
+} as const
+
+export default en

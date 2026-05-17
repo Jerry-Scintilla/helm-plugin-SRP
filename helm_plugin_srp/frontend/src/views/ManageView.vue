@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { api, type SrpRequest } from '@/api'
+import { useI18n } from '@/i18n'
 import { useAlertDialog } from '@/composables/useAlertDialog'
 import RequestTable from '@/components/RequestTable.vue'
 import RejectDialog from '@/components/RejectDialog.vue'
 import KillmailDetailModal from '@/components/KillmailDetailModal.vue'
 
+const { t } = useI18n()
 const { showAlert } = useAlertDialog()
 
 const requests = ref<SrpRequest[]>([])
@@ -20,11 +22,11 @@ const pendingRejectId = ref<number | null>(null)
 const detailRequestId = ref<number | null>(null)
 
 const STATUS_OPTIONS = [
-  { value: '',         label: '全部状态' },
-  { value: 'pending',  label: '⏳ 待审核' },
-  { value: 'approved', label: '✅ 已批准' },
-  { value: 'rejected', label: '❌ 已拒绝' },
-  { value: 'paid',     label: '💰 已付款' },
+  { value: '',         key: 'status.all' as const },
+  { value: 'pending',  key: 'status.pending' as const },
+  { value: 'approved', key: 'status.approved' as const },
+  { value: 'rejected', key: 'status.rejected' as const },
+  { value: 'paid',     key: 'status.paid' as const },
 ]
 
 async function loadRequests() {
@@ -55,7 +57,7 @@ async function onApprove(id: number) {
     await api.approveRequest(id)
     await loadRequests()
   } catch (e) {
-    await showAlert('操作失败：' + (e as Error).message)
+    await showAlert(t('common.opFailed') + (e as Error).message)
   } finally {
     actionLoading.value = false
   }
@@ -75,7 +77,7 @@ async function onRejectConfirm(notes: string) {
     pendingRejectId.value = null
     await loadRequests()
   } catch (e) {
-    await showAlert('操作失败：' + (e as Error).message)
+    await showAlert(t('common.opFailed') + (e as Error).message)
   } finally {
     actionLoading.value = false
   }
@@ -88,7 +90,7 @@ async function onMarkPaid(id: number) {
     await api.markPaid(id)
     await loadRequests()
   } catch (e) {
-    await showAlert('操作失败：' + (e as Error).message)
+    await showAlert(t('common.opFailed') + (e as Error).message)
   } finally {
     actionLoading.value = false
   }
@@ -99,7 +101,7 @@ onMounted(loadRequests)
 
 <template>
   <div>
-    <h2>补损管理</h2>
+    <h2>{{ t('manage.title') }}</h2>
 
     <div class="filter-bar">
       <div class="filter-tabs">
@@ -109,16 +111,16 @@ onMounted(loadRequests)
           class="filter-tab"
           :class="{ active: statusFilter === o.value }"
           @click="onFilterChange(o.value)"
-        >{{ o.label }}</button>
+        >{{ t(o.key) }}</button>
       </div>
-      <span style="font-size:.82rem;color:#5a5950;margin-left:4px">{{ total }} 条</span>
-      <button class="btn btn-secondary btn-sm" style="margin-left:auto" @click="loadRequests">↻ 刷新</button>
+      <span style="font-size:.82rem;color:#5a5950;margin-left:4px">{{ t('manage.total', { n: total }) }}</span>
+      <button class="btn btn-secondary btn-sm" style="margin-left:auto" @click="loadRequests">{{ t('common.refresh') }}</button>
     </div>
 
-    <p v-if="loading" class="loading">加载中…</p>
-    <p v-else-if="loadError" class="empty" style="color:#e06060">加载失败：{{ loadError }}</p>
+    <p v-if="loading" class="loading">{{ t('common.loading') }}</p>
+    <p v-else-if="loadError" class="empty" style="color:#e06060">{{ t('common.loadFailed') }}{{ loadError }}</p>
     <p v-else-if="total === 0" class="empty">
-      {{ statusFilter === 'pending' ? '没有待审核的申请 🎉' : '暂无符合条件的申请' }}
+      {{ statusFilter === 'pending' ? t('manage.noPending') : t('manage.noMatch') }}
     </p>
     <RequestTable
       v-else
