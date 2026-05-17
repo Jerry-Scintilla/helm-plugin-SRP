@@ -14,7 +14,17 @@ for /d %%d in (*.egg-info) do rmdir /s /q "%%d"
 echo      OK
 
 echo.
-echo [2/3] Checking build tool...
+echo [2/3] Building Vue frontend...
+pushd helm_plugin_srp\frontend
+call npm install
+if errorlevel 1 ( echo [ERROR] npm install failed & popd & pause & exit /b 1 )
+call npm run build
+if errorlevel 1 ( echo [ERROR] frontend build failed & popd & pause & exit /b 1 )
+popd
+echo      OK
+
+echo.
+echo [2.5/3] Checking build tool...
 python -m build --version >nul 2>&1
 if errorlevel 1 (
     echo      build not found, installing...

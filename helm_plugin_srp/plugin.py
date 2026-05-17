@@ -44,7 +44,7 @@ class SrpPlugin(HelmPlugin):
         return Path(__file__).parent / "frontend" / "dist"
 
     def get_frontend_dev_url(self):
-        return None  # 本地开发时改为 "http://localhost:5174"
+        return None  # 开发时改为 "http://localhost:5174"
 
     # ── Lifecycle ─────────────────────────────────────────────────────────────
 
