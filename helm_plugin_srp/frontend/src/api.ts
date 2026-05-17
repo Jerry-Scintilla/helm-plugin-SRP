@@ -1,3 +1,5 @@
+import { getLocale } from './i18n'
+
 let _token = ''
 let _apiBase = ''
 const SRP_BASE = '/api/v1/plugins/srp'
@@ -137,7 +139,7 @@ export const api = {
   updateConfig: (body: Partial<SrpConfig>) => request<SrpConfig>('PUT', '/config', body),
 
   previewKillmail: (url: string) =>
-    request<KillmailPreview>('GET', `/killmail/preview?url=${encodeURIComponent(url)}`),
+    request<KillmailPreview>('GET', `/killmail/preview?url=${encodeURIComponent(url)}&lang=${getLocale()}`),
 
   submitRequest: (body: {
     zkb_url: string
@@ -159,7 +161,7 @@ export const api = {
   getFleetKills: (fleetActionId: number) =>
     request<FleetKillsResponse>('GET', `/fleet/${fleetActionId}/kills`),
 
-  getRequestDetail: (id: number) => request<SrpRequestDetail>('GET', `/requests/${id}/detail`),
+  getRequestDetail: (id: number) => request<SrpRequestDetail>('GET', `/requests/${id}/detail?lang=${getLocale()}`),
 
   getMyPapFleets: () => request<MyPapFleetItem[]>('GET', '/my-pap-fleets'),
 

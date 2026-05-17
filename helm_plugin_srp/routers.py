@@ -159,6 +159,7 @@ async def update_config(
 )
 async def preview_killmail(
     url: str = Query(..., description="zkillboard 链接，如 https://zkillboard.com/kill/12345/"),
+    lang: str = Query("zh", description="语言代码，如 zh / en"),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_permission("srp.submit")),
 ):
@@ -190,7 +191,7 @@ async def preview_killmail(
     # 批量从 Helm SDE 缓存获取所有 type 的名称和图标
     raw_items = km.get("items", [])
     all_type_ids = list({km["ship_type_id"]} | {i["type_id"] for i in raw_items})
-    names = await resolve_type_names(all_type_ids, db)
+    names = await resolve_type_names(all_type_ids, db, locale=lang)
     icons = await resolve_type_icons_cached(all_type_ids, db)
 
     ship_name = names.get(km["ship_type_id"]) or km["ship_name"]
@@ -363,6 +364,7 @@ async def get_request(
 @router.get("/requests/{request_id}/detail", response_model=SrpRequestDetail, summary="查看申请详情（含物品列表）")
 async def get_request_detail(
     request_id: int,
+    lang: str = Query("zh", description="语言代码，如 zh / en"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -378,7 +380,7 @@ async def get_request_detail(
     raw_items: list[dict] = srp.items_json or []
 
     all_type_ids = list({srp.ship_type_id} | {i["type_id"] for i in raw_items})
-    names = await resolve_type_names(all_type_ids, db)
+    names = await resolve_type_names(all_type_ids, db, locale=lang)
     icons = await resolve_type_icons_cached(all_type_ids, db)
 
     item_details = [

@@ -13,6 +13,10 @@ export function setLocale(l: string): void {
   locale.value = (l in MESSAGES ? l : 'zh') as Locale
 }
 
+export function getLocale(): string {
+  return locale.value
+}
+
 export function useI18n() {
   function t(key: MessageKey, params?: Record<string, string | number>): string {
     const msgs: Record<MessageKey, string> = MESSAGES[locale.value]
