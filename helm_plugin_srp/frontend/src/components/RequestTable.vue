@@ -6,11 +6,13 @@ defineProps<{
   items: SrpRequest[]
   showCharCol?: boolean
   showActions?: boolean
+  showDetail?: boolean
 }>()
 const emit = defineEmits<{
   approve: [id: number]
   reject: [id: number]
   markPaid: [id: number]
+  viewDetail: [id: number]
 }>()
 
 function fmtDate(s: string | null | undefined): string {
@@ -32,7 +34,7 @@ function isk(v: number): string {
         <th>补损金额</th>
         <th>状态</th>
         <th>提交时间</th>
-        <th v-if="showActions">操作</th>
+        <th v-if="showActions || showDetail">操作</th>
       </tr>
     </thead>
     <tbody>
@@ -43,16 +45,23 @@ function isk(v: number): string {
         <td class="isk"><strong>{{ isk(r.calculated_value) }}</strong></td>
         <td><StatusBadge :status="r.status" /></td>
         <td>{{ fmtDate(r.created_at) }}</td>
-        <td v-if="showActions">
+        <td v-if="showActions || showDetail">
           <div class="action-row">
-            <template v-if="r.status === 'pending'">
-              <button class="btn btn-success btn-sm" @click="emit('approve', r.id)">批准</button>
-              <button class="btn btn-danger btn-sm" @click="emit('reject', r.id)">拒绝</button>
+            <template v-if="showActions">
+              <template v-if="r.status === 'pending'">
+                <button class="btn btn-success btn-sm" @click="emit('approve', r.id)">批准</button>
+                <button class="btn btn-danger btn-sm" @click="emit('reject', r.id)">拒绝</button>
+              </template>
+              <template v-else-if="r.status === 'approved'">
+                <button class="btn btn-primary btn-sm" @click="emit('markPaid', r.id)">标记已付款</button>
+              </template>
             </template>
-            <template v-else-if="r.status === 'approved'">
-              <button class="btn btn-primary btn-sm" @click="emit('markPaid', r.id)">标记已付款</button>
-            </template>
-            <template v-else>
+            <button
+              v-if="showDetail"
+              class="btn btn-secondary btn-sm"
+              @click="emit('viewDetail', r.id)"
+            >详情</button>
+            <template v-if="showActions && r.status !== 'pending' && r.status !== 'approved'">
               <span style="color:#5a5950;font-size:.8rem">—</span>
             </template>
           </div>

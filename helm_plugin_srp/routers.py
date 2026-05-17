@@ -15,14 +15,18 @@ from app.models.rbac import Permission, RolePermission, UserRole
 from app.models.user import User
 
 from helm_plugin_srp.models import DEFAULT_CONFIG, SrpConfig, SrpRequest, SrpStatus
+from app.services.sde import resolve_type_icons_cached, resolve_type_names
+
 from helm_plugin_srp.schemas import (
     FleetKillItem,
     FleetKillsResponse,
+    KillmailItemDetail,
     KillmailPreviewResponse,
     MyPapFleetItem,
     ReviewSrpRequest,
     SrpConfigResponse,
     SrpConfigUpdateRequest,
+    SrpRequestDetail,
     SrpRequestListResponse,
     SrpRequestResponse,
     SubmitSrpRequest,
@@ -183,10 +187,32 @@ async def preview_killmail(
     base_value = market_price if market_price > 0 else km["loss_value_raw"]
     calculated = price_svc.calculate_srp_value(base_value, cfg["coefficient"])
 
+    # 批量从 Helm SDE 缓存获取所有 type 的名称和图标
+    raw_items = km.get("items", [])
+    all_type_ids = list({km["ship_type_id"]} | {i["type_id"] for i in raw_items})
+    names = await resolve_type_names(all_type_ids, db)
+    icons = await resolve_type_icons_cached(all_type_ids, db)
+
+    ship_name = names.get(km["ship_type_id"]) or km["ship_name"]
+    ship_icon_url = icons.get(km["ship_type_id"])
+
+    item_details = [
+        KillmailItemDetail(
+            type_id=i["type_id"],
+            name=names.get(i["type_id"]) or f"TypeID:{i['type_id']}",
+            icon_url=icons.get(i["type_id"]),
+            qty_destroyed=i["qty_destroyed"],
+            qty_dropped=i["qty_dropped"],
+        )
+        for i in raw_items
+    ]
+
     return KillmailPreviewResponse(
         killmail_id=km["killmail_id"],
         ship_type_id=km["ship_type_id"],
-        ship_name=km["ship_name"],
+        ship_name=ship_name,
+        ship_icon_url=ship_icon_url,
+        items=item_details,
         loss_value_raw=km["loss_value_raw"],
         calculated_value=calculated,
         price_source=price_svc.price_source_label(cfg["price_region_id"], cfg["price_order_type"]),
@@ -329,6 +355,66 @@ async def get_request(
         raise HTTPException(status_code=403, detail="无权查看该申请")
 
     return SrpRequestResponse.model_validate(srp)
+
+
+# ── GET /requests/{id}/detail ─────────────────────────────────────────────────
+
+@router.get("/requests/{request_id}/detail", response_model=SrpRequestDetail, summary="查看申请详情（含物品列表）")
+async def get_request_detail(
+    request_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    result = await db.execute(select(SrpRequest).where(SrpRequest.id == request_id))
+    srp = result.scalar_one_or_none()
+    if srp is None:
+        raise HTTPException(status_code=404, detail="申请不存在")
+
+    is_officer = _has_permission(current_user, "srp.officer")
+    if not is_officer and srp.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="无权查看该申请")
+
+    # 从 ESI 重新拉取 killmail 以获取物品列表
+    raw_items: list[dict] = []
+    try:
+        km_raw = await km_svc.fetch_esi_killmail(srp.killmail_id, srp.killmail_hash)
+        victim = km_raw.get("victim", {})
+        for raw_item in victim.get("items", []):
+            if "type_id" not in raw_item:
+                continue
+            qty_d = raw_item.get("quantity_destroyed", 0)
+            qty_p = raw_item.get("quantity_dropped", 0)
+            if qty_d > 0 or qty_p > 0:
+                raw_items.append({
+                    "type_id": raw_item["type_id"],
+                    "qty_destroyed": qty_d,
+                    "qty_dropped": qty_p,
+                })
+    except Exception:
+        pass
+
+    all_type_ids = list({srp.ship_type_id} | {i["type_id"] for i in raw_items})
+    names = await resolve_type_names(all_type_ids, db)
+    icons = await resolve_type_icons_cached(all_type_ids, db)
+
+    item_details = [
+        KillmailItemDetail(
+            type_id=i["type_id"],
+            name=names.get(i["type_id"]) or f"TypeID:{i['type_id']}",
+            icon_url=icons.get(i["type_id"]),
+            qty_destroyed=i["qty_destroyed"],
+            qty_dropped=i["qty_dropped"],
+        )
+        for i in raw_items
+    ]
+
+    base = SrpRequestResponse.model_validate(srp).model_dump()
+    return SrpRequestDetail(
+        **base,
+        killmail_hash=srp.killmail_hash,
+        ship_icon_url=icons.get(srp.ship_type_id),
+        items=item_details,
+    )
 
 
 # ── POST /requests/{id}/approve ───────────────────────────────────────────────

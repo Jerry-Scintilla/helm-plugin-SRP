@@ -43,10 +43,20 @@ class SrpConfigUpdateRequest(BaseModel):
 
 # ── 预览 ──────────────────────────────────────────────────────────────────────
 
+class KillmailItemDetail(BaseModel):
+    type_id: int
+    name: str
+    icon_url: str | None
+    qty_destroyed: int
+    qty_dropped: int
+
+
 class KillmailPreviewResponse(BaseModel):
     killmail_id: int
     ship_type_id: int
     ship_name: str
+    ship_icon_url: str | None = None
+    items: list[KillmailItemDetail] = []
     loss_value_raw: float
     calculated_value: float
     price_source: str       # 例如 "Jita Buy"
@@ -116,6 +126,14 @@ class FleetKillsResponse(BaseModel):
     window_start: datetime
     window_end: datetime
     items: list[FleetKillItem]
+
+
+# ── 申请详情（含物品） ────────────────────────────────────────────────────────
+
+class SrpRequestDetail(SrpRequestResponse):
+    killmail_hash: str
+    ship_icon_url: str | None = None
+    items: list[KillmailItemDetail] = []
 
 
 # ── PAP 舰队列表 ──────────────────────────────────────────────────────────────

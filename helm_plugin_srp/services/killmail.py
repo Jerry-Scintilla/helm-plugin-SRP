@@ -83,6 +83,19 @@ async def get_killmail_info(esi_url: str) -> dict[str, Any]:
 
     ship_name = await resolve_type_name(ship_type_id) if ship_type_id else ""
 
+    items = []
+    for raw_item in victim.get("items", []):
+        if "type_id" not in raw_item:
+            continue
+        qty_d = raw_item.get("quantity_destroyed", 0)
+        qty_p = raw_item.get("quantity_dropped", 0)
+        if qty_d > 0 or qty_p > 0:
+            items.append({
+                "type_id": raw_item["type_id"],
+                "qty_destroyed": qty_d,
+                "qty_dropped": qty_p,
+            })
+
     return {
         "killmail_id": killmail_id,
         "killmail_hash": killmail_hash,
@@ -92,6 +105,7 @@ async def get_killmail_info(esi_url: str) -> dict[str, Any]:
         "victim_character_id": victim_character_id,
         "killed_at": killed_at,
         "loss_value_raw": 0.0,
+        "items": items,
     }
 
 

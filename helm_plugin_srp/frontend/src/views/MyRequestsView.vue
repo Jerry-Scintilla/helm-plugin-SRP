@@ -4,6 +4,7 @@ import { api, type SrpRequest, type KillmailPreview, type Character } from '@/ap
 import { useHelmSdk } from '@/composables/useHelmSdk'
 import { useAlertDialog } from '@/composables/useAlertDialog'
 import RequestTable from '@/components/RequestTable.vue'
+import KillmailDetailModal from '@/components/KillmailDetailModal.vue'
 
 const sdk = useHelmSdk()
 const { showAlert } = useAlertDialog()
@@ -22,6 +23,8 @@ const submitLoading = ref(false)
 const characters = ref<Character[]>([])
 const selectedCharId = ref<number | null>(null)
 const notes = ref('')
+
+const detailRequestId = ref<number | null>(null)
 
 async function loadRequests() {
   loading.value = true
@@ -139,15 +142,49 @@ onMounted(loadRequests)
 
     <!-- Preview result -->
     <div v-if="previewData" class="preview-card" style="margin-bottom:16px">
-      <div style="font-size:.9rem;color:#7a796f;margin-bottom:8px">
-        {{ previewData.ship_name }} · killmail #{{ previewData.killmail_id }}
+      <!-- 舰船信息头 -->
+      <div class="detail-ship-header">
+        <div class="ship-icon-wrap">
+          <img
+            v-if="previewData.ship_icon_url"
+            :src="previewData.ship_icon_url"
+            class="ship-icon"
+            @error="(e) => ((e.target as HTMLImageElement).style.visibility = 'hidden')"
+          />
+        </div>
+        <div>
+          <div class="ship-name">{{ previewData.ship_name }}</div>
+          <div class="km-meta">killmail #{{ previewData.killmail_id }}</div>
+        </div>
       </div>
+
       <div class="amount">{{ isk(previewData.calculated_value) }}</div>
       <div class="meta">
         原始损失：{{ isk(previewData.loss_value_raw) }} ·
         价格来源：{{ previewData.price_source }} ·
         系数：{{ previewData.coefficient }}
       </div>
+
+      <!-- 物品列表 -->
+      <div v-if="previewData.items.length" class="items-section">
+        <div class="items-header">损毁物品 ({{ previewData.items.length }})</div>
+        <div v-for="item in previewData.items" :key="item.type_id" class="item-row">
+          <div class="item-icon-wrap">
+            <img
+              v-if="item.icon_url"
+              :src="item.icon_url"
+              class="item-icon"
+              @error="(e) => ((e.target as HTMLImageElement).style.visibility = 'hidden')"
+            />
+          </div>
+          <span class="item-name">{{ item.name }}</span>
+          <span class="item-qty">
+            <span v-if="item.qty_destroyed">×{{ item.qty_destroyed }} 损毁</span>
+            <span v-if="item.qty_dropped" class="dropped"> ×{{ item.qty_dropped }} 掉落</span>
+          </span>
+        </div>
+      </div>
+
       <div v-if="previewData.eligible" style="margin-top:12px">
         <button
           class="btn btn-primary"
@@ -164,6 +201,17 @@ onMounted(loadRequests)
     <p v-if="loading" class="loading">加载中…</p>
     <p v-else-if="loadError" class="empty" style="color:#e06060">加载失败：{{ loadError }}</p>
     <p v-else-if="total === 0 && !showForm" class="empty">暂无申请记录</p>
-    <RequestTable v-else-if="total > 0" :items="requests" />
+    <RequestTable
+      v-else-if="total > 0"
+      :items="requests"
+      show-detail
+      @view-detail="detailRequestId = $event"
+    />
+
+    <KillmailDetailModal
+      :visible="detailRequestId !== null"
+      :request-id="detailRequestId"
+      @close="detailRequestId = null"
+    />
   </div>
 </template>

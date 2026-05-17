@@ -4,6 +4,7 @@ import { api, type SrpRequest } from '@/api'
 import { useAlertDialog } from '@/composables/useAlertDialog'
 import RequestTable from '@/components/RequestTable.vue'
 import RejectDialog from '@/components/RejectDialog.vue'
+import KillmailDetailModal from '@/components/KillmailDetailModal.vue'
 
 const { showAlert } = useAlertDialog()
 
@@ -16,6 +17,7 @@ const actionLoading = ref(false)
 const statusFilter = ref('pending')
 const rejectDialogVisible = ref(false)
 const pendingRejectId = ref<number | null>(null)
+const detailRequestId = ref<number | null>(null)
 
 const STATUS_OPTIONS = [
   { value: '',         label: '全部状态' },
@@ -99,16 +101,18 @@ onMounted(loadRequests)
   <div>
     <h2>补损管理</h2>
 
-    <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
-      <select
-        style="width:140px"
-        :value="statusFilter"
-        @change="onFilterChange(($event.target as HTMLSelectElement).value)"
-      >
-        <option v-for="o in STATUS_OPTIONS" :key="o.value" :value="o.value">{{ o.label }}</option>
-      </select>
-      <span style="font-size:.85rem;color:#7a796f">共 {{ total }} 条</span>
-      <button class="btn btn-secondary btn-sm" style="margin-left:auto" @click="loadRequests">刷新</button>
+    <div class="filter-bar">
+      <div class="filter-tabs">
+        <button
+          v-for="o in STATUS_OPTIONS"
+          :key="o.value"
+          class="filter-tab"
+          :class="{ active: statusFilter === o.value }"
+          @click="onFilterChange(o.value)"
+        >{{ o.label }}</button>
+      </div>
+      <span style="font-size:.82rem;color:#5a5950;margin-left:4px">{{ total }} 条</span>
+      <button class="btn btn-secondary btn-sm" style="margin-left:auto" @click="loadRequests">↻ 刷新</button>
     </div>
 
     <p v-if="loading" class="loading">加载中…</p>
@@ -121,15 +125,23 @@ onMounted(loadRequests)
       :items="requests"
       show-char-col
       show-actions
+      show-detail
       @approve="onApprove"
       @reject="onRejectOpen"
       @mark-paid="onMarkPaid"
+      @view-detail="detailRequestId = $event"
     />
 
     <RejectDialog
       :visible="rejectDialogVisible"
       @confirm="onRejectConfirm"
       @cancel="rejectDialogVisible = false"
+    />
+
+    <KillmailDetailModal
+      :visible="detailRequestId !== null"
+      :request-id="detailRequestId"
+      @close="detailRequestId = null"
     />
   </div>
 </template>

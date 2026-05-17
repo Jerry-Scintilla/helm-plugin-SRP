@@ -7,3 +7,4 @@ build/
 *.log
 .venv/
 .claude/
+helm_plugin_srp/frontend/dist/

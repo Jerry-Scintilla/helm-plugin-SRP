@@ -3,10 +3,74 @@ body { font-family: 'Segoe UI', sans-serif; background: #1a1a18; color: #c0bfb8;
 .app { display: flex; flex-direction: column; height: 100vh; }
 
 /* Top nav */
-.topbar { display: flex; align-items: center; gap: 0; background: #242420; border-bottom: 1px solid #35342f; padding: 0 8px; flex-shrink: 0; }
-.tab-btn { padding: 10px 18px; border: none; background: none; color: #7a796f; cursor: pointer; font-size: .9rem; border-bottom: 2px solid transparent; transition: color .15s, border-color .15s; }
-.tab-btn:hover { color: #c0bfb8; }
-.tab-btn.active { color: #f0ece0; border-bottom-color: #b8934a; }
+.topbar {
+  display: flex;
+  align-items: stretch;
+  background: linear-gradient(180deg, #232320 0%, #1e1e1c 100%);
+  border-bottom: 1px solid #2c2b27;
+  padding: 0 8px;
+  flex-shrink: 0;
+  min-height: 46px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .3);
+}
+.tab-btn {
+  position: relative;
+  padding: 0 20px;
+  border: none;
+  background: none;
+  color: #5e5d55;
+  cursor: pointer;
+  font-size: .875rem;
+  font-weight: 500;
+  letter-spacing: .025em;
+  white-space: nowrap;
+  transition: color .2s, background .2s;
+}
+.tab-btn::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 16px; right: 16px;
+  height: 2px;
+  background: #b8934a;
+  border-radius: 1px 1px 0 0;
+  transform: scaleX(0);
+  transition: transform .22s ease;
+}
+.tab-btn:hover {
+  color: #a8a79e;
+  background: rgba(255, 255, 255, .03);
+}
+.tab-btn.active {
+  color: #f0ece0;
+  background: rgba(184, 147, 74, .07);
+}
+.tab-btn.active::after { transform: scaleX(1); }
+
+/* Filter tab group (used in ManageView) */
+.filter-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.filter-tabs {
+  display: flex;
+  background: #1c1c1a;
+  border: 1px solid #2c2b27;
+  border-radius: 6px;
+  padding: 3px;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+.filter-tab {
+  padding: 5px 14px;
+  border: none;
+  background: none;
+  color: #5a5950;
+  cursor: pointer;
+  font-size: .82rem;
+  border-radius: 4px;
+  white-space: nowrap;
+  transition: color .15s, background .15s;
+}
+.filter-tab:hover { color: #c0bfb8; background: rgba(255, 255, 255, .04); }
+.filter-tab.active { background: #2e2c26; color: #e8e5dc; font-weight: 500; }
 
 /* Content area */
 .content { flex: 1; overflow-y: auto; padding: 20px 24px; }
@@ -69,7 +133,7 @@ tr:hover td { background: #222220; }
   background: #242420; border: 1px solid #35342f; border-radius: 8px;
   color: #c0bfb8; min-width: 320px; max-width: 480px;
 }
-.dialog-header { padding: 16px 20px; border-bottom: 1px solid #35342f; font-size: 1rem; color: #f0ece0; }
+.dialog-header { padding: 16px 20px; border-bottom: 1px solid #35342f; font-size: 1rem; color: #f0ece0; display: flex; align-items: center; }
 .dialog-body { padding: 16px 20px; }
 .dialog-footer { padding: 12px 20px; border-top: 1px solid #35342f; display: flex; justify-content: flex-end; gap: 8px; }
 
@@ -90,8 +154,57 @@ tr:hover td { background: #222220; }
 .kill-row.selected td { background: #1e2a18; }
 .checkbox-col { width: 36px; }
 
+/* Global select style (for selects outside .form-group) */
+select {
+  padding: 7px 10px;
+  background: #2a2a28;
+  border: 1px solid #3e3d38;
+  border-radius: 4px;
+  color: #c0bfb8;
+  font-size: .88rem;
+  cursor: pointer;
+  transition: border-color .15s;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%237a796f'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+select:focus { outline: none; border-color: #b8934a; }
+select option { background: #2a2a28; color: #c0bfb8; }
+
 /* PAP fleet selector */
 .pap-select-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
 .pap-select-bar select { flex: 1; min-width: 240px; }
 .pap-badge-active { display: inline-block; padding: 2px 7px; border-radius: 3px; font-size: .75rem; background: #0d2e0d; color: #4caf50; margin-left: 6px; }
 .pap-badge-ended  { display: inline-block; padding: 2px 7px; border-radius: 3px; font-size: .75rem; background: #2a2a28; color: #7a796f; margin-left: 6px; }
+
+/* Killmail detail — ship header & items */
+.detail-ship-header { display: flex; gap: 12px; align-items: center; margin-bottom: 14px; }
+.ship-icon-wrap { width: 64px; height: 64px; flex-shrink: 0; border-radius: 6px; background: #2a2a24; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.ship-icon { width: 64px; height: 64px; object-fit: cover; border-radius: 6px; }
+.ship-name { font-size: 1.05rem; font-weight: 600; color: #f0ece0; }
+.km-meta { font-size: .82rem; color: #7a796f; margin-top: 3px; }
+.zkb-link { color: #b8934a; text-decoration: none; }
+.zkb-link:hover { text-decoration: underline; }
+
+.detail-section { border-top: 1px solid #2a2a24; padding-top: 10px; margin-bottom: 10px; }
+.detail-row { display: flex; gap: 10px; align-items: baseline; padding: 3px 0; font-size: .88rem; }
+.detail-label { color: #7a796f; min-width: 72px; flex-shrink: 0; }
+.detail-value-main { font-size: 1.1rem; font-weight: 700; color: #f0ece0; }
+
+.items-section { border-top: 1px solid #2a2a24; padding-top: 10px; margin-top: 4px; }
+.items-header { font-size: .75rem; color: #7a796f; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+.item-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid #232320; }
+.item-row:last-child { border-bottom: none; }
+.item-icon-wrap { width: 32px; height: 32px; flex-shrink: 0; border-radius: 3px; background: #2a2a24; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+.item-icon { width: 32px; height: 32px; object-fit: cover; }
+.item-name { flex: 1; font-size: .85rem; }
+.item-qty { font-size: .8rem; color: #7a796f; white-space: nowrap; }
+.item-qty .dropped { color: #b8934a; }
+
+/* Detail modal sizing */
+.detail-modal { min-width: 360px; max-width: 560px; width: 90vw; max-height: 80vh; display: flex; flex-direction: column; }
+.detail-modal .dialog-body { overflow-y: auto; flex: 1; }
+.btn-close { background: none; border: none; color: #7a796f; font-size: 1.2rem; cursor: pointer; line-height: 1; padding: 0 2px; margin-left: auto; }
+.btn-close:hover { color: #c0bfb8; }

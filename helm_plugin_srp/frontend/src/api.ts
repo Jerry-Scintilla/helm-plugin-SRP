@@ -45,9 +45,20 @@ export interface SrpConfig {
   min_loss_value: number
 }
 
+export interface KillmailItem {
+  type_id: number
+  name: string
+  icon_url: string | null
+  qty_destroyed: number
+  qty_dropped: number
+}
+
 export interface KillmailPreview {
   killmail_id: number
+  ship_type_id: number
   ship_name: string
+  ship_icon_url: string | null
+  items: KillmailItem[]
   loss_value_raw: number
   calculated_value: number
   price_source: string
@@ -62,11 +73,22 @@ export type SrpStatus = 'pending' | 'approved' | 'rejected' | 'paid'
 export interface SrpRequest {
   id: number
   character_name: string
+  ship_type_id: number
   ship_name: string
   loss_value_raw: number
   calculated_value: number
   status: SrpStatus
   created_at: string
+  killmail_id: number
+  zkb_url: string
+  notes?: string | null
+  officer_notes?: string | null
+}
+
+export interface SrpRequestDetail extends SrpRequest {
+  killmail_hash: string
+  ship_icon_url: string | null
+  items: KillmailItem[]
 }
 
 export interface SrpRequestPage {
@@ -136,6 +158,8 @@ export const api = {
 
   getFleetKills: (fleetActionId: number) =>
     request<FleetKillsResponse>('GET', `/fleet/${fleetActionId}/kills`),
+
+  getRequestDetail: (id: number) => request<SrpRequestDetail>('GET', `/requests/${id}/detail`),
 
   getMyPapFleets: () => request<MyPapFleetItem[]>('GET', '/my-pap-fleets'),
 
