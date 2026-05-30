@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "helm-plugin-srp"
-version = "0.1.0"
+version = "0.1.1"
 description = "舰船补损（SRP）管理系统，支持 zkillboard 链接解析、补损官审核和价格配置"
 readme = "README.md"
 requires-python = ">=3.12"

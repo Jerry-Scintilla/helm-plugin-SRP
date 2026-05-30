@@ -8,7 +8,7 @@ from app.plugins.registry import extension_registry
 
 class SrpPlugin(HelmPlugin):
     name = "srp"
-    version = "0.1.0"
+    version = "0.1.1"
     author = "Jerry_Scintilla"
     description = "舰船补损（SRP）管理系统，支持 zkillboard 链接解析、补损官审核和价格配置"
     helm_sdk_version = ">=1.0,<2.0"
