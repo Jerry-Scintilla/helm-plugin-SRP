@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, defineAsyncComponent } from 'vue'
 import { api } from '@/api'
 import { useHelmSdk } from '@/composables/useHelmSdk'
 import { useI18n } from '@/i18n'
@@ -10,7 +10,10 @@ import MyRequestsView from '@/views/MyRequestsView.vue'
 import ManageView from '@/views/ManageView.vue'
 import ConfigView from '@/views/ConfigView.vue'
 
-type TabId = 'pap' | 'fleet' | 'mine' | 'review' | 'config'
+// 看板依赖较大的 ECharts，按需懒加载，独立成 chunk
+const DashboardView = defineAsyncComponent(() => import('@/views/DashboardView.vue'))
+
+type TabId = 'pap' | 'fleet' | 'mine' | 'review' | 'dashboard' | 'config'
 
 const sdk = useHelmSdk()
 const { t } = useI18n()
@@ -24,6 +27,7 @@ const tabs = computed(() => {
   if (sdk.fleetActionId.value)     result.push({ id: 'fleet',  label: t('app.tab.fleet') })
   result.push({ id: 'mine', label: t('app.tab.mine') })
   if (sdk.isOfficer.value)         result.push({ id: 'review', label: t('app.tab.review') })
+  if (sdk.isOfficer.value)         result.push({ id: 'dashboard', label: t('app.tab.dashboard') })
   if (sdk.isAdmin.value)           result.push({ id: 'config', label: t('app.tab.config') })
   return result
 })
@@ -68,6 +72,7 @@ onMounted(async () => {
         <FleetQuickView v-else-if="activeTab === 'fleet'" />
         <MyRequestsView v-else-if="activeTab === 'mine'"  />
         <ManageView     v-else-if="activeTab === 'review'" />
+        <DashboardView  v-else-if="activeTab === 'dashboard'" />
         <ConfigView     v-else-if="activeTab === 'config'" />
       </div>
     </template>

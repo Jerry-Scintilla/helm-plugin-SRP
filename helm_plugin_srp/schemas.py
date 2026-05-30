@@ -161,3 +161,49 @@ class MyPapFleetItem(BaseModel):
     window_start: datetime
     window_end: datetime | None
     pap_issued_at: datetime
+
+
+# ── 看板统计 ──────────────────────────────────────────────────────────────────
+
+class DashboardSummary(BaseModel):
+    period: str                  # "week" | "month" | "quarter" | "year"
+    window_start: datetime
+    window_end: datetime
+    total_requests: int          # 区间内全部申请数
+    total_loss_raw: float        # 原始损失合计
+    total_srp_amount: float      # 补损金额合计（calculated_value）
+    paid_amount: float           # 已付款金额
+    approved_amount: float       # 已批准（含已付款）金额
+    pending_count: int
+    approved_count: int
+    rejected_count: int
+    paid_count: int
+
+
+class DashboardShipStat(BaseModel):
+    ship_type_id: int
+    ship_name: str
+    icon_url: str | None = None
+    count: int
+    total_amount: float
+
+
+class DashboardCharStat(BaseModel):
+    character_id: int
+    character_name: str
+    count: int
+    total_amount: float
+
+
+class DashboardTrendPoint(BaseModel):
+    bucket: str                  # 标签，如 "05-30" 或 "2026-05"
+    count: int
+    total_amount: float
+
+
+class DashboardResponse(BaseModel):
+    summary: DashboardSummary
+    granularity: str             # "day" | "month"
+    trend: list[DashboardTrendPoint]
+    ships: list[DashboardShipStat]
+    characters: list[DashboardCharStat]

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -18,6 +18,11 @@ from helm_plugin_srp.models import DEFAULT_CONFIG, SrpConfig, SrpRequest, SrpSta
 from app.services.sde import resolve_type_icons_cached, resolve_type_names
 
 from helm_plugin_srp.schemas import (
+    DashboardCharStat,
+    DashboardResponse,
+    DashboardShipStat,
+    DashboardSummary,
+    DashboardTrendPoint,
     FleetKillItem,
     FleetKillsResponse,
     KillmailItemDetail,
@@ -80,6 +85,191 @@ async def _verify_character_ownership(
     if char is None:
         raise HTTPException(status_code=403, detail="该角色不属于您的账号")
     return char
+
+
+def _period_window(period: str) -> tuple[datetime, datetime, str]:
+    """根据周期返回 (起始时间, 结束时间, 趋势分桶粒度)。"""
+    now = datetime.now(UTC)
+    midnight = {"hour": 0, "minute": 0, "second": 0, "microsecond": 0}
+    if period == "week":
+        start = (now - timedelta(days=now.weekday())).replace(**midnight)
+        return start, now, "day"
+    if period == "month":
+        start = now.replace(day=1, **midnight)
+        return start, now, "day"
+    if period == "quarter":
+        q_first_month = ((now.month - 1) // 3) * 3 + 1
+        start = now.replace(month=q_first_month, day=1, **midnight)
+        return start, now, "month"
+    if period == "year":
+        start = now.replace(month=1, day=1, **midnight)
+        return start, now, "month"
+    raise HTTPException(status_code=400, detail=f"无效的周期：{period}（可选 week/month/quarter/year）")
+
+
+def _build_trend(
+    rows: list[SrpRequest],
+    start: datetime,
+    end: datetime,
+    granularity: str,
+) -> list[DashboardTrendPoint]:
+    """将申请按时间分桶，空桶补零，保证连续。"""
+    buckets: dict[str, dict[str, float]] = {}
+    order: list[str] = []
+
+    if granularity == "day":
+        cur = start
+        while cur.date() <= end.date():
+            key = cur.strftime("%m-%d")
+            buckets[key] = {"count": 0, "total_amount": 0.0}
+            order.append(key)
+            cur += timedelta(days=1)
+        keyer = lambda dt: dt.strftime("%m-%d")  # noqa: E731
+    else:  # month
+        y, m = start.year, start.month
+        while (y, m) <= (end.year, end.month):
+            key = f"{y:04d}-{m:02d}"
+            buckets[key] = {"count": 0, "total_amount": 0.0}
+            order.append(key)
+            m += 1
+            if m > 12:
+                m = 1
+                y += 1
+        keyer = lambda dt: f"{dt.year:04d}-{dt.month:02d}"  # noqa: E731
+
+    for r in rows:
+        created = r.created_at
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=UTC)
+        key = keyer(created)
+        b = buckets.get(key)
+        if b is None:
+            continue
+        b["count"] += 1
+        b["total_amount"] += float(r.calculated_value or 0)
+
+    return [
+        DashboardTrendPoint(
+            bucket=k,
+            count=int(buckets[k]["count"]),
+            total_amount=buckets[k]["total_amount"],
+        )
+        for k in order
+    ]
+
+
+# ── GET /dashboard/stats ───────────────────────────────────────────────────────
+
+@router.get(
+    "/dashboard/stats",
+    response_model=DashboardResponse,
+    summary="补损看板统计（周/月/季/年）",
+)
+async def dashboard_stats(
+    period: str = Query("month", description="统计周期：week/month/quarter/year"),
+    lang: str = Query("zh", description="语言代码，如 zh / en"),
+    top: int = Query(10, ge=1, le=50, description="排行榜返回条数"),
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_permission("srp.officer")),
+):
+    start, end, granularity = _period_window(period)
+
+    result = await db.execute(
+        select(SrpRequest).where(SrpRequest.created_at >= start)
+    )
+    rows = result.scalars().all()
+
+    # ── 汇总 ──────────────────────────────────────────────────────────────────
+    total_loss_raw = 0.0
+    total_srp_amount = 0.0
+    paid_amount = 0.0
+    approved_amount = 0.0
+    counts = {s: 0 for s in (SrpStatus.pending, SrpStatus.approved, SrpStatus.rejected, SrpStatus.paid)}
+
+    ship_agg: dict[int, dict] = {}
+    char_agg: dict[int, dict] = {}
+
+    for r in rows:
+        amount = float(r.calculated_value or 0)
+        total_loss_raw += float(r.loss_value_raw or 0)
+        total_srp_amount += amount
+        counts[r.status] = counts.get(r.status, 0) + 1
+        if r.status == SrpStatus.paid:
+            paid_amount += amount
+            approved_amount += amount
+        elif r.status == SrpStatus.approved:
+            approved_amount += amount
+
+        ship = ship_agg.setdefault(
+            r.ship_type_id,
+            {"ship_name": r.ship_name, "count": 0, "total_amount": 0.0},
+        )
+        ship["count"] += 1
+        ship["total_amount"] += amount
+        if r.ship_name and not ship["ship_name"]:
+            ship["ship_name"] = r.ship_name
+
+        char = char_agg.setdefault(
+            r.character_id,
+            {"character_name": r.character_name, "count": 0, "total_amount": 0.0},
+        )
+        char["count"] += 1
+        char["total_amount"] += amount
+
+    summary = DashboardSummary(
+        period=period,
+        window_start=start,
+        window_end=end,
+        total_requests=len(rows),
+        total_loss_raw=total_loss_raw,
+        total_srp_amount=total_srp_amount,
+        paid_amount=paid_amount,
+        approved_amount=approved_amount,
+        pending_count=counts.get(SrpStatus.pending, 0),
+        approved_count=counts.get(SrpStatus.approved, 0),
+        rejected_count=counts.get(SrpStatus.rejected, 0),
+        paid_count=counts.get(SrpStatus.paid, 0),
+    )
+
+    trend = _build_trend(list(rows), start, end, granularity)
+
+    # ── 排行榜（按补损金额降序）────────────────────────────────────────────────
+    top_ships = sorted(ship_agg.items(), key=lambda kv: kv[1]["total_amount"], reverse=True)[:top]
+    top_chars = sorted(char_agg.items(), key=lambda kv: kv[1]["total_amount"], reverse=True)[:top]
+
+    # 解析舰船名称 / 图标（仅排行榜内）
+    ship_ids = [tid for tid, _ in top_ships]
+    names = await resolve_type_names(ship_ids, db, locale=lang) if ship_ids else {}
+    icons = await resolve_type_icons_cached(ship_ids, db) if ship_ids else {}
+
+    ships = [
+        DashboardShipStat(
+            ship_type_id=tid,
+            ship_name=names.get(tid) or agg["ship_name"] or f"TypeID:{tid}",
+            icon_url=icons.get(tid),
+            count=agg["count"],
+            total_amount=agg["total_amount"],
+        )
+        for tid, agg in top_ships
+    ]
+
+    characters = [
+        DashboardCharStat(
+            character_id=cid,
+            character_name=agg["character_name"],
+            count=agg["count"],
+            total_amount=agg["total_amount"],
+        )
+        for cid, agg in top_chars
+    ]
+
+    return DashboardResponse(
+        summary=summary,
+        granularity=granularity,
+        trend=trend,
+        ships=ships,
+        characters=characters,
+    )
 
 
 # ── GET /me ───────────────────────────────────────────────────────────────────

@@ -138,6 +138,54 @@ export interface Character {
   value: number
 }
 
+// ── Dashboard ──────────────────────────────────────────────────────────────────
+
+export type DashboardPeriod = 'week' | 'month' | 'quarter' | 'year'
+
+export interface DashboardSummary {
+  period: DashboardPeriod
+  window_start: string
+  window_end: string
+  total_requests: number
+  total_loss_raw: number
+  total_srp_amount: number
+  paid_amount: number
+  approved_amount: number
+  pending_count: number
+  approved_count: number
+  rejected_count: number
+  paid_count: number
+}
+
+export interface DashboardShipStat {
+  ship_type_id: number
+  ship_name: string
+  icon_url: string | null
+  count: number
+  total_amount: number
+}
+
+export interface DashboardCharStat {
+  character_id: number
+  character_name: string
+  count: number
+  total_amount: number
+}
+
+export interface DashboardTrendPoint {
+  bucket: string
+  count: number
+  total_amount: number
+}
+
+export interface DashboardResponse {
+  summary: DashboardSummary
+  granularity: 'day' | 'month'
+  trend: DashboardTrendPoint[]
+  ships: DashboardShipStat[]
+  characters: DashboardCharStat[]
+}
+
 // ── API methods ───────────────────────────────────────────────────────────────
 
 export const api = {
@@ -172,6 +220,9 @@ export const api = {
   getRequestDetail: (id: number) => request<SrpRequestDetail>('GET', `/requests/${id}/detail?lang=${getLocale()}`),
 
   getMyPapFleets: () => request<MyPapFleetItem[]>('GET', '/my-pap-fleets'),
+
+  getDashboard: (period: DashboardPeriod) =>
+    request<DashboardResponse>('GET', `/dashboard/stats?period=${period}&lang=${getLocale()}`),
 
   async getCharacters(): Promise<Character[]> {
     try {
