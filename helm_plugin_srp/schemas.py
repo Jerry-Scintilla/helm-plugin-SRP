@@ -10,23 +10,37 @@ from helm_plugin_srp.models import SrpStatus
 # ── 配置 ──────────────────────────────────────────────────────────────────────
 
 class SrpConfigResponse(BaseModel):
+    # ── 共用配置 ──────────────────────────────────────────────────────────────
     price_region_id: int
     price_order_type: str        # "buy" | "sell"
+    # ── 常规补损 ──────────────────────────────────────────────────────────────
     coefficient: float
     enabled: bool
     min_loss_value: float
     eligible_ship_groups: list[int]
     full_loss: bool
+    # ── PAP 舰队补损 ──────────────────────────────────────────────────────────
+    pap_coefficient: float
+    pap_enabled: bool
+    pap_min_loss_value: float
+    pap_full_loss: bool
 
 
 class SrpConfigUpdateRequest(BaseModel):
+    # ── 共用配置 ──────────────────────────────────────────────────────────────
     price_region_id: int | None = None
     price_order_type: str | None = None
+    # ── 常规补损 ──────────────────────────────────────────────────────────────
     coefficient: float | None = None
     enabled: bool | None = None
     min_loss_value: float | None = None
     eligible_ship_groups: list[int] | None = None
     full_loss: bool | None = None
+    # ── PAP 舰队补损 ──────────────────────────────────────────────────────────
+    pap_coefficient: float | None = None
+    pap_enabled: bool | None = None
+    pap_min_loss_value: float | None = None
+    pap_full_loss: bool | None = None
 
     @field_validator("price_order_type")
     @classmethod
@@ -35,7 +49,7 @@ class SrpConfigUpdateRequest(BaseModel):
             raise ValueError("price_order_type 必须为 'buy' 或 'sell'")
         return v
 
-    @field_validator("coefficient")
+    @field_validator("coefficient", "pap_coefficient")
     @classmethod
     def validate_coefficient(cls, v: float | None) -> float | None:
         if v is not None and not (0.0 <= v <= 2.0):

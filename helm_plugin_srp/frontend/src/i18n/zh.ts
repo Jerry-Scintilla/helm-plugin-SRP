@@ -47,6 +47,10 @@ const zh = {
 
   // Config
   'config.title': '补损配置',
+  'config.sectionShared': '共用配置',
+  'config.sectionRegular': '常规补损',
+  'config.sectionPap': 'PAP 舰队补损',
+  'config.papHint': '提交时关联了舰队行动（PAP）的申请将使用以下独立配置',
   'config.regionId': '价格星域 ID（Region ID）',
   'config.regionHint': '10000002=Jita / 10000043=Amarr',
   'config.orderType': '订单类型',
@@ -60,6 +64,10 @@ const zh = {
   'config.fullLoss': '全损计算',
   'config.fullLossOn': '开启（船体 + 装备）',
   'config.fullLossOff': '关闭（仅船体）',
+  'config.papSysStatus': 'PAP 补损状态',
+  'config.papCoefficient': 'PAP 价值系数（0.0 ~ 2.0）',
+  'config.papMinLoss': 'PAP 最低损失（ISK）',
+  'config.papFullLoss': 'PAP 全损计算',
   'config.saved': '✅ 配置已保存',
   'config.saveFailed': '保存失败：',
 

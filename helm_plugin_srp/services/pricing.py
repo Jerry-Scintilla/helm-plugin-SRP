@@ -76,6 +76,7 @@ def price_source_label(region_id: int, order_type: str) -> str:
 async def load_config(db) -> dict[str, Any]:
     """
     从数据库读取 srp_configs，返回解析后的配置字典。
+    包含常规补损和 PAP 舰队补损两套独立配置。
     调用方传入 AsyncSession。
     """
     from sqlalchemy import select
@@ -85,14 +86,43 @@ async def load_config(db) -> dict[str, Any]:
     rows = result.scalars().all()
     cfg: dict[str, str] = {row.key: row.value for row in rows}
 
+    def _bool(key: str) -> bool:
+        return cfg.get(key, DEFAULT_CONFIG[key]) == "true"
+
+    def _float(key: str) -> float:
+        return float(cfg.get(key, DEFAULT_CONFIG[key]))
+
     return {
-        "price_region_id":     int(cfg.get("price_region_id",  DEFAULT_CONFIG["price_region_id"])),
-        "price_order_type":    cfg.get("price_order_type",      DEFAULT_CONFIG["price_order_type"]),
-        "coefficient":         float(cfg.get("coefficient",     DEFAULT_CONFIG["coefficient"])),
-        "enabled":             cfg.get("enabled",               DEFAULT_CONFIG["enabled"]) == "true",
-        "min_loss_value":      float(cfg.get("min_loss_value",  DEFAULT_CONFIG["min_loss_value"])),
+        # 共用
+        "price_region_id":      int(cfg.get("price_region_id", DEFAULT_CONFIG["price_region_id"])),
+        "price_order_type":     cfg.get("price_order_type",     DEFAULT_CONFIG["price_order_type"]),
+        # 常规补损
+        "coefficient":          _float("coefficient"),
+        "enabled":              _bool("enabled"),
+        "min_loss_value":       _float("min_loss_value"),
         "eligible_ship_groups": json.loads(cfg.get("eligible_ship_groups", DEFAULT_CONFIG["eligible_ship_groups"])),
-        "full_loss":           cfg.get("full_loss",             DEFAULT_CONFIG["full_loss"]) == "true",
+        "full_loss":            _bool("full_loss"),
+        # PAP 舰队补损
+        "pap_coefficient":      _float("pap_coefficient"),
+        "pap_enabled":          _bool("pap_enabled"),
+        "pap_min_loss_value":   _float("pap_min_loss_value"),
+        "pap_full_loss":        _bool("pap_full_loss"),
+    }
+
+
+def get_effective_config(cfg: dict[str, Any], is_pap: bool) -> dict[str, Any]:
+    """
+    根据请求类型返回生效的单一配置视图。
+    is_pap=True 时使用 PAP 舰队配置覆盖常规字段，保留共用字段不变。
+    """
+    if not is_pap:
+        return cfg
+    return {
+        **cfg,
+        "coefficient":    cfg["pap_coefficient"],
+        "enabled":        cfg["pap_enabled"],
+        "min_loss_value": cfg["pap_min_loss_value"],
+        "full_loss":      cfg["pap_full_loss"],
     }
 
 

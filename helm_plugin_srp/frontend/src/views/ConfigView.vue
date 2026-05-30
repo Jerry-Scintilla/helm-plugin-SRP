@@ -55,6 +55,8 @@ onMounted(loadConfig)
     <p v-else-if="loadError" class="empty" style="color:#e06060">{{ t('common.loadFailed') }}{{ loadError }}</p>
 
     <template v-else-if="config">
+      <!-- 共用配置 -->
+      <h3 class="config-section-title">{{ t('config.sectionShared') }}</h3>
       <div class="config-grid">
         <div class="form-group">
           <label>{{ t('config.regionId') }}</label>
@@ -72,17 +74,11 @@ onMounted(loadConfig)
             ]"
           />
         </div>
+      </div>
 
-        <div class="form-group">
-          <label>{{ t('config.coefficient') }}</label>
-          <input v-model.number="config.coefficient" type="number" step="0.01" min="0" max="2" />
-        </div>
-
-        <div class="form-group">
-          <label>{{ t('config.minLoss') }}</label>
-          <input v-model.number="config.min_loss_value" type="number" step="1000000" min="0" />
-        </div>
-
+      <!-- 常规补损配置 -->
+      <h3 class="config-section-title">{{ t('config.sectionRegular') }}</h3>
+      <div class="config-grid">
         <div class="form-group">
           <label>{{ t('config.sysStatus') }}</label>
           <CustomSelect
@@ -95,9 +91,56 @@ onMounted(loadConfig)
         </div>
 
         <div class="form-group">
+          <label>{{ t('config.coefficient') }}</label>
+          <input v-model.number="config.coefficient" type="number" step="0.01" min="0" max="2" />
+        </div>
+
+        <div class="form-group">
+          <label>{{ t('config.minLoss') }}</label>
+          <input v-model.number="config.min_loss_value" type="number" step="1000000" min="0" />
+        </div>
+
+        <div class="form-group">
           <label>{{ t('config.fullLoss') }}</label>
           <CustomSelect
             v-model="config.full_loss"
+            :options="[
+              { value: true,  label: t('config.fullLossOn') },
+              { value: false, label: t('config.fullLossOff') },
+            ]"
+          />
+        </div>
+      </div>
+
+      <!-- PAP 舰队补损配置 -->
+      <h3 class="config-section-title">{{ t('config.sectionPap') }}</h3>
+      <p class="config-section-hint">{{ t('config.papHint') }}</p>
+      <div class="config-grid">
+        <div class="form-group">
+          <label>{{ t('config.papSysStatus') }}</label>
+          <CustomSelect
+            v-model="config.pap_enabled"
+            :options="[
+              { value: true,  label: t('config.enabled') },
+              { value: false, label: t('config.disabled') },
+            ]"
+          />
+        </div>
+
+        <div class="form-group">
+          <label>{{ t('config.papCoefficient') }}</label>
+          <input v-model.number="config.pap_coefficient" type="number" step="0.01" min="0" max="2" />
+        </div>
+
+        <div class="form-group">
+          <label>{{ t('config.papMinLoss') }}</label>
+          <input v-model.number="config.pap_min_loss_value" type="number" step="1000000" min="0" />
+        </div>
+
+        <div class="form-group">
+          <label>{{ t('config.papFullLoss') }}</label>
+          <CustomSelect
+            v-model="config.pap_full_loss"
             :options="[
               { value: true,  label: t('config.fullLossOn') },
               { value: false, label: t('config.fullLossOff') },

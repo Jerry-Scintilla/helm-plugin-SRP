@@ -101,11 +101,18 @@ class SrpConfig(Base):
 
 # 默认配置值（首次启用时写入）
 DEFAULT_CONFIG: dict[str, str] = {
+    # ── 共用配置（常规 & PAP 共享）──────────────────────────────────────────
     "price_region_id":    "10000002",  # The Forge (Jita)
     "price_order_type":   "buy",       # "buy" | "sell"
+    # ── 常规补损配置 ────────────────────────────────────────────────────────
     "coefficient":        "1.0",       # 价值乘数
     "enabled":            "true",      # 系统开关
     "min_loss_value":     "0",         # 最低损失 ISK
     "eligible_ship_groups": "[]",      # 允许补损的舰船组 ID，空=全部
     "full_loss":          "false",     # 是否计算全损（船体+装备）
+    # ── PAP 舰队补损配置（有 fleet_action_id 时使用）────────────────────────
+    "pap_coefficient":    "1.0",       # PAP 舰队价值乘数
+    "pap_enabled":        "true",      # PAP 舰队补损开关
+    "pap_min_loss_value": "0",         # PAP 舰队最低损失 ISK
+    "pap_full_loss":      "false",     # PAP 舰队是否计算全损
 }

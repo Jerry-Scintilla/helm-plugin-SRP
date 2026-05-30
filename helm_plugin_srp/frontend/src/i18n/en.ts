@@ -47,6 +47,10 @@ const en = {
 
   // Config
   'config.title': 'SRP Config',
+  'config.sectionShared': 'Shared Settings',
+  'config.sectionRegular': 'Regular SRP',
+  'config.sectionPap': 'PAP Fleet SRP',
+  'config.papHint': 'Requests submitted with a fleet action (PAP) will use these separate settings',
   'config.regionId': 'Price Region ID',
   'config.regionHint': '10000002=Jita / 10000043=Amarr',
   'config.orderType': 'Order Type',
@@ -60,6 +64,10 @@ const en = {
   'config.fullLoss': 'Full Loss',
   'config.fullLossOn': 'Enabled (hull + fittings)',
   'config.fullLossOff': 'Disabled (hull only)',
+  'config.papSysStatus': 'PAP SRP Status',
+  'config.papCoefficient': 'PAP Coefficient (0.0 ~ 2.0)',
+  'config.papMinLoss': 'PAP Min Loss (ISK)',
+  'config.papFullLoss': 'PAP Full Loss',
   'config.saved': '✅ Config saved',
   'config.saveFailed': 'Save failed: ',
 

@@ -6,8 +6,20 @@ build-backend = "setuptools.build_meta"
 name = "helm-plugin-srp"
 version = "0.1.0"
 description = "舰船补损（SRP）管理系统，支持 zkillboard 链接解析、补损官审核和价格配置"
+readme = "README.md"
 requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "Jerry-Scintilla", email = "jerrycaocao@126.com" }]
+keywords = ["helm", "eve-online", "plugin", "srp"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+]
 dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/Fusion-Cyber/helm-plugin-index"
 
 [project.entry-points."helm.plugins"]
 srp = "helm_plugin_srp.plugin:SrpPlugin"

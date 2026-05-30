@@ -165,6 +165,8 @@ tr:hover td { background: rgba(255, 255, 255, .02); }
 /* Config grid */
 .config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 @media (max-width: 600px) { .config-grid { grid-template-columns: 1fr; } }
+.config-section-title { color: var(--text-primary); font-family: var(--font-serif); font-size: 1rem; font-weight: 500; margin: 20px 0 10px; border-left: 3px solid var(--brand); padding-left: 10px; }
+.config-section-hint  { font-size: .8rem; color: var(--text-muted); margin: -6px 0 12px 13px; }
 
 /* Inline action buttons */
 .action-row { display: flex; gap: 6px; flex-wrap: wrap; }

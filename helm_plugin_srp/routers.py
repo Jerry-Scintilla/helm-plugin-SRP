@@ -143,6 +143,14 @@ async def update_config(
         updates["eligible_ship_groups"] = json.dumps(body.eligible_ship_groups)
     if body.full_loss is not None:
         updates["full_loss"] = "true" if body.full_loss else "false"
+    if body.pap_coefficient is not None:
+        updates["pap_coefficient"] = str(body.pap_coefficient)
+    if body.pap_enabled is not None:
+        updates["pap_enabled"] = "true" if body.pap_enabled else "false"
+    if body.pap_min_loss_value is not None:
+        updates["pap_min_loss_value"] = str(body.pap_min_loss_value)
+    if body.pap_full_loss is not None:
+        updates["pap_full_loss"] = "true" if body.pap_full_loss else "false"
 
     for key, val in updates.items():
         await _upsert_config(db, key, val)
@@ -162,6 +170,7 @@ async def update_config(
 async def preview_killmail(
     url: str = Query(..., description="zkillboard 链接，如 https://zkillboard.com/kill/12345/"),
     lang: str = Query("zh", description="语言代码，如 zh / en"),
+    fleet_action_id: int | None = Query(None, description="PAP 舰队行动 ID，有值时使用 PAP 补损配置"),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_permission("srp.submit")),
 ):
@@ -172,7 +181,8 @@ async def preview_killmail(
     except httpx.HTTPStatusError as e:
         raise HTTPException(status_code=502, detail=f"外部 API 错误：{e.response.status_code}")
 
-    cfg = await _load_config(db)
+    full_cfg = await _load_config(db)
+    cfg = price_svc.get_effective_config(full_cfg, is_pap=fleet_action_id is not None)
     eligible, reason = price_svc.check_eligibility(km["loss_value_raw"], km["ship_type_id"], cfg)
 
     # 尝试从市场获取实时价格（作为参考；实际补损用 zkb 原始价）
@@ -273,7 +283,8 @@ async def submit_request(
             detail="该击杀的受害者不是您指定的角色，请确认 zkillboard 链接是否正确",
         )
 
-    cfg = await _load_config(db)
+    full_cfg = await _load_config(db)
+    cfg = price_svc.get_effective_config(full_cfg, is_pap=body.fleet_action_id is not None)
     eligible, reason = price_svc.check_eligibility(km["loss_value_raw"], km["ship_type_id"], cfg)
     if not eligible:
         raise HTTPException(status_code=400, detail=f"不符合补损资格：{reason}")
@@ -544,8 +555,9 @@ async def get_fleet_kills(
     )
     submitted_ids: set[int] = {row[0] for row in submitted_result.all()}
 
-    # 4. 从 zkb 拉取各角色的损失
-    cfg = await _load_config(db)
+    # 4. 从 zkb 拉取各角色的损失（舰队视图始终使用 PAP 配置）
+    full_cfg = await _load_config(db)
+    cfg = price_svc.get_effective_config(full_cfg, is_pap=True)
     all_kills: list[FleetKillItem] = []
 
     for char in characters:

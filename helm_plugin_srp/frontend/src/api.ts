@@ -40,12 +40,19 @@ export interface MeResponse {
 }
 
 export interface SrpConfig {
+  // 共用配置
   price_region_id: number
   price_order_type: 'buy' | 'sell'
+  // 常规补损
   coefficient: number
   enabled: boolean
   min_loss_value: number
   full_loss: boolean
+  // PAP 舰队补损
+  pap_coefficient: number
+  pap_enabled: boolean
+  pap_min_loss_value: number
+  pap_full_loss: boolean
 }
 
 export interface KillmailItem {
